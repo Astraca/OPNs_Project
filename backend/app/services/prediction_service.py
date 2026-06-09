@@ -23,7 +23,10 @@ PREDICTION_STORAGE_DIR = Path("storage/predictions")
 def run_single_prediction(db: Session, current_user: User, model_id: int, input_data: dict[str, Any]) -> dict[str, Any]:
     model = get_model(db, current_user, model_id)
     feature_frame = build_feature_frame(model.feature_columns, [input_data])
-    prediction = predict_frame(model.model_file_path, model.target_columns, feature_frame)
+    prediction = predict_frame(
+        model.model_file_path, model.target_columns, feature_frame,
+        opns_enabled=bool(model.opns_enabled),
+    )
     job = save_prediction_job(db, current_user, model.id, "single", [input_data], [prediction])
     return {
         "job_id": job.id,
@@ -48,7 +51,10 @@ async def run_batch_prediction(db: Session, current_user: User, model_id: int, f
 
     dataframe = read_dataframe(input_path)
     feature_frame = build_feature_frame(model.feature_columns, dataframe.to_dict(orient="records"))
-    predictions = predict_frame(model.model_file_path, model.target_columns, feature_frame, as_list=True)
+    predictions = predict_frame(
+        model.model_file_path, model.target_columns, feature_frame,
+        as_list=True, opns_enabled=bool(model.opns_enabled),
+    )
     rows: list[dict[str, Any]] = []
     for index, prediction in enumerate(predictions):
         row = dataframe.iloc[index].astype(object).where(pd.notnull(dataframe.iloc[index]), None).to_dict()
@@ -97,7 +103,10 @@ def run_single_regression_prediction(
             detail="Model is not a regression model",
         )
     feature_frame = build_feature_frame(model.feature_columns, [input_data])
-    predicted_value = predict_regression_frame(model.model_file_path, feature_frame)
+    predicted_value = predict_regression_frame(
+        model.model_file_path, feature_frame,
+        opns_enabled=bool(model.opns_enabled),
+    )
     job = save_prediction_job(
         db, current_user, model.id, "regression_single",
         [input_data], [{"predicted_value": predicted_value}],
@@ -136,7 +145,10 @@ async def run_batch_regression_prediction(
 
     dataframe = read_dataframe(input_path)
     feature_frame = build_feature_frame(model.feature_columns, dataframe.to_dict(orient="records"))
-    predicted_values = predict_regression_frame(model.model_file_path, feature_frame, as_list=True)
+    predicted_values = predict_regression_frame(
+        model.model_file_path, feature_frame,
+        as_list=True, opns_enabled=bool(model.opns_enabled),
+    )
 
     target_name = model.target_columns[0] if model.target_columns else "target"
     rows: list[dict[str, Any]] = []
@@ -160,6 +172,7 @@ def predict_regression_frame(
     model_dir: str | None,
     feature_frame: pd.DataFrame,
     as_list: bool = False,
+    opns_enabled: bool = False,
 ) -> float | list[float]:
     if model_dir is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model files are missing")
@@ -167,7 +180,12 @@ def predict_regression_frame(
     model_path = Path(model_dir)
     transformer_path = model_path / "opns_transformer.pkl"
     transformed = feature_frame
-    if transformer_path.exists():
+    if opns_enabled:
+        if not transformer_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OPNs transformer file is missing for this model",
+            )
         transformer = joblib.load(transformer_path)
         transformed = transformer.transform(feature_frame)
 
@@ -193,6 +211,7 @@ def predict_frame(
     target_columns: list[str],
     feature_frame: pd.DataFrame,
     as_list: bool = False,
+    opns_enabled: bool = False,
 ) -> dict[str, Any] | list[dict[str, Any]]:
     if model_dir is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model files are missing")
@@ -200,7 +219,12 @@ def predict_frame(
     model_path = Path(model_dir)
     transformer_path = model_path / "opns_transformer.pkl"
     transformed = feature_frame
-    if transformer_path.exists():
+    if opns_enabled:
+        if not transformer_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OPNs transformer file is missing for this model",
+            )
         transformer = joblib.load(transformer_path)
         transformed = transformer.transform(feature_frame)
 

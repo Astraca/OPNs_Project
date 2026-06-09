@@ -77,13 +77,25 @@ def _get_test_data(
 
 
 def _load_model_pipeline(model: MLModel) -> tuple[Any | None, dict[str, Pipeline] | Pipeline]:
-    """Return (transformer, classifiers|regressor) from disk."""
+    """Return (transformer, classifiers|regressor) from disk.
+
+    The transformer is only loaded when model.opns_enabled is True,
+    matching the training-time behaviour.
+    """
     if model.model_file_path is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model files are missing")
 
     model_path = Path(model.model_file_path)
     transformer_path = model_path / "opns_transformer.pkl"
-    transformer = joblib.load(transformer_path) if transformer_path.exists() else None
+    transformer = None
+
+    if model.opns_enabled:
+        if not transformer_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OPNs transformer file is missing for this model",
+            )
+        transformer = joblib.load(transformer_path)
 
     if model.task_type == "regression":
         regressor_path = model_path / "regressor.pkl"
