@@ -22,6 +22,16 @@ export default function ModelMetricsBarChart({ metrics }: Props) {
     const targets = metrics.map((m) => m.target_name);
     const metricKeys = ["accuracy", "precision", "recall", "f1"] as const;
 
+    // Compute dynamic y-axis range to make small differences visible
+    const allValues = metrics.flatMap((m) =>
+      metricKeys.map((k) => m[k]).filter((v): v is number => typeof v === "number"),
+    );
+    const dataMin = allValues.length > 0 ? Math.min(...allValues) : 0;
+    const dataMax = allValues.length > 0 ? Math.max(...allValues) : 1;
+    const padding = Math.max((dataMax - dataMin) * 0.15, 0.02);
+    const yMin = Math.max(0, dataMin - padding);
+    const yMax = Math.min(1, dataMax + padding);
+
     return {
       tooltip: {
         trigger: "axis",
@@ -41,8 +51,8 @@ export default function ModelMetricsBarChart({ metrics }: Props) {
       yAxis: {
         type: "value",
         name: "分数",
-        min: 0,
-        max: 1,
+        min: yMin,
+        max: yMax,
       },
       series: metricKeys.map((key) => ({
         name: key.charAt(0).toUpperCase() + key.slice(1),
