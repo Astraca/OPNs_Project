@@ -19,6 +19,39 @@ function isOpnsAlgorithm(algo: string | undefined): boolean {
 const CLASSIFICATION_TASK_TYPES = ["multi_output_classification", "classification"];
 const REGRESSION_TASK_TYPES = ["regression"];
 
+// ── Bidirectional test-size input (Slider ↔ InputNumber) ─────────────────
+
+function TestSizeInput({ value = 0.2, onChange }: { value?: number; onChange?: (v: number) => void }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <Slider
+        min={0.1}
+        max={0.4}
+        step={0.05}
+        marks={{ 0.1: "10%", 0.2: "20%", 0.3: "30%", 0.4: "40%" }}
+        value={value}
+        onChange={(v) => onChange?.(v as number)}
+        style={{ flex: 1 }}
+      />
+      <InputNumber
+        min={0.1}
+        max={0.4}
+        step={0.05}
+        value={value}
+        onChange={(v) => {
+          if (v != null) {
+            if (v < 0.1 || v > 0.4) {
+              message.warning("测试集比例合法区间为 0.1 ~ 0.4");
+            }
+            onChange?.(Math.min(0.4, Math.max(0.1, v)));
+          }
+        }}
+        style={{ width: 72 }}
+      />
+    </div>
+  );
+}
+
 export default function ModelTrainPage() {
   const navigate = useNavigate();
   const [form] = Form.useForm<ModelTrainPayload | RegressionTrainPayload>();
@@ -231,6 +264,7 @@ export default function ModelTrainPage() {
         <Form.Item
           name="test_size"
           label="测试集比例"
+          initialValue={0.2}
           rules={[
             { required: true },
             {
@@ -241,37 +275,17 @@ export default function ModelTrainPage() {
             },
           ]}
         >
-          <Space.Compact style={{ width: "100%" }}>
-            <Slider
-              min={0.1}
-              max={0.4}
-              step={0.05}
-              marks={{ 0.1: "10%", 0.2: "20%", 0.3: "30%", 0.4: "40%" }}
-              style={{ flex: 1 }}
-              value={form.getFieldValue("test_size") ?? 0.2}
-              onChange={(v) => form.setFieldsValue({ test_size: v })}
-            />
-            <InputNumber
-              min={0.1}
-              max={0.4}
-              step={0.05}
-              style={{ width: 80 }}
-              value={form.getFieldValue("test_size") ?? 0.2}
-              onChange={(v) => {
-                if (v != null) {
-                  if (v < 0.1 || v > 0.4) {
-                    message.warning("测试集比例合法区间为 0.1 ~ 0.4");
-                  }
-                  form.setFieldsValue({ test_size: Math.min(0.4, Math.max(0.1, v)) });
-                }
-              }}
-            />
-          </Space.Compact>
+          <TestSizeInput />
         </Form.Item>
 
-        <Form.Item name="random_state" label="随机种子" rules={[{ required: true }]}>
-          <Space.Compact style={{ width: "100%" }}>
-            <InputNumber min={0} max={999999} style={{ flex: 1 }} />
+        <Form.Item
+          name="random_state"
+          label="随机种子"
+          rules={[{ required: true }]}
+          initialValue={42}
+        >
+          <Space.Compact>
+            <InputNumber min={0} max={999999} style={{ width: 120 }} />
             <Button
               icon={<SyncOutlined />}
               onClick={() => form.setFieldsValue({ random_state: Math.floor(Math.random() * 100000) })}
