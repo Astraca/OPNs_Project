@@ -18,7 +18,7 @@ from app.db_models.ml_model import MLModel, ModelMetric, TrainingRun
 from app.db_models.user import User
 from app.ml.opns_transformer import OPNsTransformer
 from app.schemas.model_schema import ModelTrainRequest
-from app.services.dataset_service import get_dataset, read_dataset_file
+from app.services.dataset_service import get_dataset, get_dataset_columns, read_dataset_file
 from app.utils.igan_fields import get_default_feature_columns, get_mestc_target_columns
 
 
@@ -33,7 +33,9 @@ def train_classification_model(db: Session, current_user: User, payload: ModelTr
     if not target_columns:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No target columns found in dataset")
 
-    feature_columns = payload.feature_columns or get_default_feature_columns(
+    dataset_columns = get_dataset_columns(db, current_user, dataset.id)
+    role_feature_columns = [column.column_name for column in dataset_columns if column.role == "feature"]
+    feature_columns = payload.feature_columns or role_feature_columns or get_default_feature_columns(
         [str(column) for column in dataframe.columns],
         target_columns,
     )

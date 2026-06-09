@@ -3,6 +3,7 @@ import type { EChartsOption } from "echarts";
 import { useMemo } from "react";
 
 import type { CorrelationMatrixData } from "../../types/dataset";
+import { displayFieldName } from "../../utils/fieldNames";
 import EChartView from "./EChartView";
 
 
@@ -31,13 +32,13 @@ export default function CorrelationHeatmap({ data }: CorrelationHeatmapProps) {
       grid: { left: 96, right: 32, top: 32, bottom: 92 },
       xAxis: {
         type: "category",
-        data: data.columns,
+        data: data.columns.map(displayFieldName),
         splitArea: { show: true },
         axisLabel: { rotate: 45 },
       },
       yAxis: {
         type: "category",
-        data: data.columns,
+        data: data.columns.map(displayFieldName),
         splitArea: { show: true },
       },
       visualMap: {

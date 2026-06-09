@@ -29,6 +29,20 @@ def get_default_feature_columns(columns: Iterable[str], target_columns: Iterable
     ]
 
 
+def infer_column_role(column: str, target_columns: Iterable[str]) -> str:
+    if column in set(target_columns) or column.startswith("out-"):
+        return "target"
+    if column in IDENTIFIER_COLUMNS:
+        return "ignored"
+    return "feature"
+
+
+def strip_io_prefix(column: str) -> str:
+    if column.startswith("in-") or column.startswith("out-"):
+        return column[3:]
+    return column
+
+
 def display_target_name(target: str) -> str:
     return target.removeprefix("out-")
 

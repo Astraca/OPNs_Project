@@ -5,6 +5,7 @@ import { listModels } from "../../api/models";
 import { predictSingleIgan } from "../../api/predictions";
 import type { MLModel } from "../../types/model";
 import type { SinglePredictionResponse } from "../../types/prediction";
+import { displayFieldName } from "../../utils/fieldNames";
 import "./PredictionPages.css";
 
 
@@ -64,7 +65,7 @@ export default function IganSinglePredictionPage() {
           <Row gutter={16}>
             {selectedModel.feature_columns.map((feature) => (
               <Col xs={24} md={8} key={feature}>
-                <Form.Item name={feature} label={feature}>
+                <Form.Item name={feature} label={displayFieldName(feature)}>
                   <InputNumber style={{ width: "100%" }} />
                 </Form.Item>
               </Col>

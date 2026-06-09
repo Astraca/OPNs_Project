@@ -3,6 +3,7 @@ import type { EChartsOption } from "echarts";
 import { useMemo } from "react";
 
 import type { MissingValuesChartData } from "../../types/dataset";
+import { displayFieldName } from "../../utils/fieldNames";
 import EChartView from "./EChartView";
 
 
@@ -22,7 +23,7 @@ export default function MissingValuesBarChart({ data }: MissingValuesBarChartPro
       grid: { left: 56, right: 24, top: 28, bottom: 80 },
       xAxis: {
         type: "category",
-        data: items.map((item) => item.column_name),
+        data: items.map((item) => displayFieldName(item.column_name)),
         axisLabel: { rotate: 35 },
       },
       yAxis: { type: "value", name: "缺失数" },

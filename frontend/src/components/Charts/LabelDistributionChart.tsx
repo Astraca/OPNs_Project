@@ -3,6 +3,7 @@ import type { EChartsOption } from "echarts";
 import { useMemo } from "react";
 
 import type { LabelDistributionData } from "../../types/dataset";
+import { displayFieldName } from "../../utils/fieldNames";
 import EChartView from "./EChartView";
 
 
@@ -49,7 +50,7 @@ export default function LabelDistributionChart({ data }: LabelDistributionChartP
     <Tabs
       items={targets.map((target) => ({
         key: target,
-        label: target,
+          label: displayFieldName(target),
         children: <SingleLabelChart target={target} distribution={data.distributions[target]} />,
       }))}
     />

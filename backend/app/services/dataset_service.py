@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.db_models.dataset import Dataset, DatasetColumn
 from app.db_models.user import User
-from app.schemas.dataset_schema import DatasetCreateRequest
-from app.utils.igan_fields import get_default_feature_columns, get_output_columns
+from app.schemas.dataset_schema import DatasetColumnRolesUpdateRequest, DatasetCreateRequest
+from app.utils.igan_fields import get_default_feature_columns, get_output_columns, infer_column_role
 
 
 STORAGE_DIR = Path("storage/datasets")
@@ -33,6 +33,28 @@ def create_dataset(db: Session, current_user: User, payload: DatasetCreateReques
 def list_datasets(db: Session, current_user: User) -> list[Dataset]:
     statement = select(Dataset).where(Dataset.user_id == current_user.id).order_by(Dataset.created_at.desc())
     return list(db.scalars(statement).all())
+
+
+def update_dataset_column_roles(
+    db: Session,
+    current_user: User,
+    dataset_id: int,
+    payload: DatasetColumnRolesUpdateRequest,
+) -> list[DatasetColumn]:
+    dataset = get_dataset(db, current_user, dataset_id)
+    columns = get_dataset_columns(db, current_user, dataset.id)
+    columns_by_name = {column.column_name: column for column in columns}
+    for update in payload.columns:
+        if update.column_name in columns_by_name:
+            columns_by_name[update.column_name].role = update.role
+
+    dataset.target_columns = [
+        column.column_name
+        for column in columns
+        if column.role == "target"
+    ]
+    db.commit()
+    return get_dataset_columns(db, current_user, dataset.id)
 
 
 def get_dataset(db: Session, current_user: User, dataset_id: int) -> Dataset:
@@ -109,14 +131,14 @@ def get_profile(db: Session, current_user: User, dataset_id: int) -> dict[str, A
     return {
         "dataset": dataset,
         "columns": columns,
-        "missing_values": {column.column_name: column.missing_count for column in columns},
+        "missing_values": {column.column_name: column.missing_count for column in columns if column.role != "ignored"},
         "target_distribution": target_distribution,
     }
 
 
 def get_missing_values_chart(db: Session, current_user: User, dataset_id: int) -> dict[str, Any]:
     dataset = get_dataset(db, current_user, dataset_id)
-    columns = get_dataset_columns(db, current_user, dataset_id)
+    columns = [column for column in get_dataset_columns(db, current_user, dataset_id) if column.role != "ignored"]
     total_rows = dataset.sample_count or 0
     return {
         "total_rows": total_rows,
@@ -144,7 +166,7 @@ def get_label_distribution_chart(db: Session, current_user: User, dataset_id: in
 
 
 def get_numeric_statistics_chart(db: Session, current_user: User, dataset_id: int) -> dict[str, Any]:
-    columns = get_dataset_columns(db, current_user, dataset_id)
+    columns = [column for column in get_dataset_columns(db, current_user, dataset_id) if column.role == "feature"]
     return {
         "items": [
             {
@@ -164,7 +186,10 @@ def get_numeric_statistics_chart(db: Session, current_user: User, dataset_id: in
 def get_correlation_matrix_chart(db: Session, current_user: User, dataset_id: int) -> dict[str, Any]:
     dataset = get_dataset(db, current_user, dataset_id)
     dataframe = read_dataset_file(dataset)
-    feature_columns = get_default_feature_columns([str(column) for column in dataframe.columns], dataset.target_columns)
+    dataset_columns = get_dataset_columns(db, current_user, dataset_id)
+    feature_columns = [column.column_name for column in dataset_columns if column.role == "feature"]
+    if not feature_columns:
+        feature_columns = get_default_feature_columns([str(column) for column in dataframe.columns], dataset.target_columns)
     numeric_dataframe = dataframe[feature_columns].apply(pd.to_numeric, errors="coerce").dropna(axis=1, how="all")
     if numeric_dataframe.empty:
         return {"columns": [], "matrix": []}
@@ -206,7 +231,7 @@ def build_column_summaries(
                 dataset_id=dataset_id,
                 column_name=str(column_name),
                 data_type=str(series.dtype),
-                role="target" if column_name in target_columns else "feature",
+                role=infer_column_role(str(column_name), target_columns),
                 missing_count=int(series.isna().sum()),
                 unique_count=int(series.nunique(dropna=True)),
                 mean=float(numeric_series.mean()) if has_numeric_values else None,

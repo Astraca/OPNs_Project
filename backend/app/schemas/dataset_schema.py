@@ -46,6 +46,15 @@ class DatasetColumnResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DatasetColumnRoleUpdate(BaseModel):
+    column_name: str
+    role: Literal["feature", "target", "ignored"]
+
+
+class DatasetColumnRolesUpdateRequest(BaseModel):
+    columns: list[DatasetColumnRoleUpdate]
+
+
 class DatasetPreviewResponse(BaseModel):
     columns: list[str]
     rows: list[dict[str, Any]]

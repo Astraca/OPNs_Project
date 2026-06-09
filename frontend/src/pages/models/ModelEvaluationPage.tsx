@@ -1,10 +1,14 @@
-import { Button, Descriptions, Table, Typography, message } from "antd";
+import { Button, Descriptions, Space, Table, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { getModel, getModelMetrics } from "../../api/models";
+import { generateModelAnalysis } from "../../api/ai";
+import AIReportPanel from "../ai/AIReportPanel";
+import type { AIAnalysisReport } from "../../types/ai";
 import type { MLModel, ModelMetric } from "../../types/model";
+import { displayFieldName } from "../../utils/fieldNames";
 import "./ModelPages.css";
 
 
@@ -22,7 +26,9 @@ export default function ModelEvaluationPage() {
   const navigate = useNavigate();
   const [model, setModel] = useState<MLModel | null>(null);
   const [metrics, setMetrics] = useState<ModelMetric[]>([]);
+  const [aiReport, setAiReport] = useState<AIAnalysisReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const [generatingAI, setGeneratingAI] = useState(false);
 
   useEffect(() => {
     async function loadModel() {
@@ -62,17 +68,33 @@ export default function ModelEvaluationPage() {
     { title: "F1", dataIndex: "f1", render: (value: number | undefined) => value?.toFixed(4) ?? "-" },
   ];
 
+  async function handleGenerateAI() {
+    setGeneratingAI(true);
+    try {
+      setAiReport(await generateModelAnalysis(modelId));
+      message.success("AI 模型分析已生成");
+    } catch {
+      message.error("AI 模型分析生成失败");
+    } finally {
+      setGeneratingAI(false);
+    }
+  }
+
   return (
     <main>
       <div className="model-toolbar">
         <Typography.Title level={3}>模型评估</Typography.Title>
-        <Button onClick={() => navigate("/models")}>返回模型列表</Button>
+        <Space>
+          <Button onClick={handleGenerateAI} loading={generatingAI}>生成 AI 结果分析</Button>
+          <Button onClick={() => navigate("/models")}>返回模型列表</Button>
+        </Space>
       </div>
+      <AIReportPanel report={aiReport} />
       {model && (
         <Descriptions bordered size="small" column={2}>
           <Descriptions.Item label="模型名称">{model.model_name}</Descriptions.Item>
           <Descriptions.Item label="算法">{model.algorithm}</Descriptions.Item>
-          <Descriptions.Item label="目标字段">{model.target_columns.join(", ")}</Descriptions.Item>
+          <Descriptions.Item label="目标字段">{model.target_columns.map(displayFieldName).join(", ")}</Descriptions.Item>
           <Descriptions.Item label="特征数">{model.feature_columns.length}</Descriptions.Item>
           <Descriptions.Item label="配对方式">{model.pairing_method ?? "-"}</Descriptions.Item>
           <Descriptions.Item label="模型目录">{model.model_file_path ?? "-"}</Descriptions.Item>

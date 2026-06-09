@@ -2,6 +2,7 @@ import { request } from "./request";
 import type {
   Dataset,
   DatasetColumn,
+  DatasetColumnRoleUpdate,
   DatasetCreatePayload,
   DatasetPreview,
   DatasetProfile,
@@ -47,6 +48,11 @@ export async function getDatasetPreview(id: number) {
 
 export async function getDatasetColumns(id: number) {
   const { data } = await request.get<DatasetColumn[]>(`/datasets/${id}/columns`);
+  return data;
+}
+
+export async function updateDatasetColumnRoles(id: number, columns: DatasetColumnRoleUpdate[]) {
+  const { data } = await request.put<DatasetColumn[]>(`/datasets/${id}/columns/roles`, { columns });
   return data;
 }
 

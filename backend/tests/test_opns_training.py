@@ -30,6 +30,7 @@ class OPNsTrainingTestCase(unittest.TestCase):
         frame = pd.DataFrame(
             {
                 "age": [20, 22, 35, 37, 50, 52, 65, 67, 40, 42],
+                "编号": list(range(1, 11)),
                 "albumin": [40, 41, 35, 36, 32, 33, 28, 29, 34, 35],
                 "creatinine": [0.8, 0.9, 1.0, 1.1, 1.3, 1.4, 1.7, 1.8, 1.2, 1.25],
                 "uric_acid": [300, 310, 330, 340, 360, 370, 390, 400, 350, 355],
@@ -94,6 +95,7 @@ class OPNsTrainingTestCase(unittest.TestCase):
 
         self.assertTrue(model.opns_enabled)
         self.assertTrue(model.model_file_path)
+        self.assertNotIn("编号", model.feature_columns)
         self.assertEqual(len(metrics), 20)
 
     def test_single_prediction_uses_out_prefixed_targets(self) -> None:

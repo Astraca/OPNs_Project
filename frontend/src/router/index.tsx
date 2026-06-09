@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import AppLayout from "../layouts/AppLayout";
+import PlaceholderPage from "../pages/PlaceholderPage";
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
 import DashboardPage from "../pages/dashboard/DashboardPage";
@@ -15,7 +16,6 @@ import ModelTrainPage from "../pages/models/ModelTrainPage";
 import BatchPredictionPage from "../pages/prediction/BatchPredictionPage";
 import IganSinglePredictionPage from "../pages/prediction/IganSinglePredictionPage";
 import PredictionHistoryPage from "../pages/prediction/PredictionHistoryPage";
-import PlaceholderPage from "../pages/PlaceholderPage";
 import ProtectedRoute from "./ProtectedRoute";
 
 

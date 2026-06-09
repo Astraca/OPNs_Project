@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 
 import { listModels } from "../../api/models";
 import type { MLModel } from "../../types/model";
+import { displayFieldName } from "../../utils/fieldNames";
 import "./ModelPages.css";
 
 
@@ -32,7 +33,7 @@ export default function ModelListPage() {
   const columns: ColumnsType<MLModel> = [
     { title: "名称", dataIndex: "model_name" },
     { title: "算法", dataIndex: "algorithm", render: (value: string) => <Tag color="blue">{value}</Tag> },
-    { title: "目标字段", dataIndex: "target_columns", render: (targets: string[]) => targets.join(", ") },
+    { title: "目标字段", dataIndex: "target_columns", render: (targets: string[]) => targets.map(displayFieldName).join(", ") },
     { title: "特征数", dataIndex: "feature_columns", render: (features: string[]) => features.length },
     {
       title: "操作",

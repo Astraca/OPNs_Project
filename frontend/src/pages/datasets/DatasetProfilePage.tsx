@@ -1,8 +1,11 @@
-import { Alert, Button, Col, Row, Statistic, Table, Typography, message } from "antd";
+import { Alert, Button, Col, Row, Space, Statistic, Table, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
+import {
+  generateDatasetAnalysis,
+} from "../../api/ai";
 import {
   getCorrelationMatrixChart,
   getDatasetProfile,
@@ -10,6 +13,7 @@ import {
   getMissingValuesChart,
   getNumericStatisticsChart,
 } from "../../api/datasets";
+import AIReportPanel from "../ai/AIReportPanel";
 import CorrelationHeatmap from "../../components/Charts/CorrelationHeatmap";
 import LabelDistributionChart from "../../components/Charts/LabelDistributionChart";
 import MissingValuesBarChart from "../../components/Charts/MissingValuesBarChart";
@@ -20,6 +24,8 @@ import type {
   MissingValuesChartData,
   NumericStatisticsItem,
 } from "../../types/dataset";
+import type { AIAnalysisReport } from "../../types/ai";
+import { displayFieldName } from "../../utils/fieldNames";
 import "./DatasetPages.css";
 
 
@@ -32,7 +38,9 @@ export default function DatasetProfilePage() {
   const [labelDistribution, setLabelDistribution] = useState<LabelDistributionData | null>(null);
   const [correlation, setCorrelation] = useState<CorrelationMatrixData | null>(null);
   const [numericStats, setNumericStats] = useState<NumericStatisticsItem[]>([]);
+  const [aiReport, setAiReport] = useState<AIAnalysisReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const [generatingAI, setGeneratingAI] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -63,13 +71,25 @@ export default function DatasetProfilePage() {
   }, [datasetId]);
 
   const numericColumns: ColumnsType<NumericStatisticsItem> = [
-    { title: "字段", dataIndex: "column_name" },
+    { title: "字段", dataIndex: "column_name", render: (value: string) => displayFieldName(value) },
     { title: "均值", dataIndex: "mean", render: (value: number | null) => value?.toFixed(4) ?? "-" },
     { title: "标准差", dataIndex: "std", render: (value: number | null) => value?.toFixed(4) ?? "-" },
     { title: "最小值", dataIndex: "min_value", render: (value: number | null) => value?.toFixed(4) ?? "-" },
     { title: "最大值", dataIndex: "max_value", render: (value: number | null) => value?.toFixed(4) ?? "-" },
     { title: "缺失值", dataIndex: "missing_count" },
   ];
+
+  async function handleGenerateAI() {
+    setGeneratingAI(true);
+    try {
+      setAiReport(await generateDatasetAnalysis(datasetId));
+      message.success("AI 数据分析已生成");
+    } catch {
+      message.error("AI 数据分析生成失败");
+    } finally {
+      setGeneratingAI(false);
+    }
+  }
 
   return (
     <main>
@@ -78,8 +98,12 @@ export default function DatasetProfilePage() {
           <Typography.Title level={3}>数据分析</Typography.Title>
           <Typography.Text type="secondary">{profile?.dataset.name ?? "数据集质量与分布统计"}</Typography.Text>
         </div>
-        <Button onClick={() => navigate(`/datasets/${datasetId}`)}>返回详情</Button>
+        <Space>
+          <Button onClick={handleGenerateAI} loading={generatingAI}>生成 AI 数据分析</Button>
+          <Button onClick={() => navigate(`/datasets/${datasetId}`)}>返回详情</Button>
+        </Space>
       </div>
+      <AIReportPanel report={aiReport} />
 
       <Alert
         type="info"

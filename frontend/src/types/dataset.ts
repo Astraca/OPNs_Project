@@ -1,4 +1,5 @@
 export type DatasetTaskType = "classification" | "regression" | "multi_output_classification";
+export type DatasetColumnRole = "feature" | "target" | "ignored";
 
 export type Dataset = {
   id: number;
@@ -20,7 +21,7 @@ export type DatasetColumn = {
   dataset_id: number;
   column_name: string;
   data_type: string;
-  role: string;
+  role: DatasetColumnRole;
   missing_count: number;
   unique_count: number;
   mean: number | null;
@@ -33,6 +34,11 @@ export type DatasetCreatePayload = {
   name: string;
   task_type: DatasetTaskType;
   description?: string;
+};
+
+export type DatasetColumnRoleUpdate = {
+  column_name: string;
+  role: DatasetColumnRole;
 };
 
 export type DatasetPreview = {

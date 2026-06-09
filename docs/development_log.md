@@ -9,3 +9,4 @@
 - Implemented dataset visualization with missing values, label distribution, numeric statistics, and correlation charts.
 - Implemented OPNs-SVM classification training with model persistence and metric evaluation pages.
 - Adjusted IgAN field handling for out-prefixed targets and implemented single/batch prediction workflows.
+- Added dataset column role management and mock AI analysis for datasets, models, and prediction results.

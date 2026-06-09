@@ -7,6 +7,7 @@ from app.dependencies import get_current_user
 from app.schemas.dataset_schema import (
     CorrelationMatrixResponse,
     DatasetColumnResponse,
+    DatasetColumnRolesUpdateRequest,
     DatasetCreateRequest,
     DatasetPreviewResponse,
     DatasetProfileResponse,
@@ -82,6 +83,16 @@ def get_dataset_columns(
     current_user: User = Depends(get_current_user),
 ):
     return dataset_service.get_dataset_columns(db, current_user, dataset_id)
+
+
+@router.put("/{dataset_id}/columns/roles", response_model=list[DatasetColumnResponse])
+def update_dataset_column_roles(
+    dataset_id: int,
+    payload: DatasetColumnRolesUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return dataset_service.update_dataset_column_roles(db, current_user, dataset_id, payload)
 
 
 @router.get("/{dataset_id}/profile", response_model=DatasetProfileResponse)

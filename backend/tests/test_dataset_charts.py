@@ -10,6 +10,7 @@ from app.database import Base
 from app.db_models.dataset import Dataset
 from app.db_models.user import User
 from app.services import dataset_service
+from app.schemas.dataset_schema import DatasetColumnRoleUpdate, DatasetColumnRolesUpdateRequest
 
 
 class DatasetChartServiceTestCase(unittest.TestCase):
@@ -29,6 +30,7 @@ class DatasetChartServiceTestCase(unittest.TestCase):
         frame = pd.DataFrame(
             {
                 "age": [20, 30, None, 50],
+                "住院号": [1001, 1002, 1003, 1004],
                 "creatinine": [1.0, 1.2, 1.4, 1.6],
                 "out-M": [0, 1, 1, 0],
                 "out-E": [0, 0, 1, 0],
@@ -45,7 +47,7 @@ class DatasetChartServiceTestCase(unittest.TestCase):
             file_path=self.temp_file.name,
             file_type="csv",
             sample_count=4,
-            feature_count=4,
+            feature_count=5,
             target_columns=["out-M", "out-E"],
         )
         self.session.add(self.dataset)
@@ -77,6 +79,29 @@ class DatasetChartServiceTestCase(unittest.TestCase):
         self.assertEqual(result["columns"], ["age", "creatinine"])
         self.assertEqual(len(result["matrix"]), 2)
         self.assertEqual(result["matrix"][0][0], 1.0)
+
+    def test_identifier_columns_are_ignored_by_default(self) -> None:
+        columns = dataset_service.get_dataset_columns(self.session, self.user, self.dataset.id)
+        roles = {column.column_name: column.role for column in columns}
+
+        self.assertEqual(roles["住院号"], "ignored")
+
+    def test_can_update_column_roles(self) -> None:
+        updated = dataset_service.update_dataset_column_roles(
+            self.session,
+            self.user,
+            self.dataset.id,
+            DatasetColumnRolesUpdateRequest(
+                columns=[
+                    DatasetColumnRoleUpdate(column_name="age", role="ignored"),
+                    DatasetColumnRoleUpdate(column_name="out-M", role="target"),
+                ]
+            ),
+        )
+        roles = {column.column_name: column.role for column in updated}
+
+        self.assertEqual(roles["age"], "ignored")
+        self.assertIn("out-M", self.dataset.target_columns)
 
 
 if __name__ == "__main__":
