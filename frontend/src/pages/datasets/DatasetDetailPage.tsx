@@ -194,7 +194,7 @@ export default function DatasetDetailPage() {
             options={[
               { label: "🔵 特征", value: "feature" },
               { label: "🟢 目标", value: "target" },
-              { label: "⚪ 忽略", value: "ignored" },
+              { label: "🟠 忽略", value: "ignored" },
             ]}
             onChange={(nextRole) =>
               updateLocalRole(record.column_name, nextRole)
@@ -418,7 +418,7 @@ export default function DatasetDetailPage() {
             <Space wrap>
               <Tag color="blue">特征</Tag>
               <Tag color="green">目标</Tag>
-              <Tag>忽略</Tag>
+              <Tag color="orange">忽略</Tag>
               <Button
                 type="primary"
                 onClick={handleSaveRoles}
