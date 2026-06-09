@@ -1,28 +1,24 @@
 from pathlib import Path
 from typing import Any
 
-import joblib
-import numpy as np
 import pandas as pd
 from fastapi import HTTPException, status
-from sklearn.impute import SimpleImputer
-from sklearn.metrics import (
-    confusion_matrix,
-    mean_absolute_error,
-    mean_squared_error,
-    r2_score,
-    roc_auc_score,
-    roc_curve,
-)
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db_models.dataset import Dataset
 from app.db_models.ml_model import MLModel, ModelMetric
 from app.db_models.user import User
+from app.ml.evaluator import (
+    compute_confusion_matrix,
+    compute_predicted_vs_actual,
+    compute_residuals,
+    compute_roc_data,
+    has_predict_proba,
+)
+from app.ml.predictor import apply_transformer, load_classifiers, load_pipeline, load_transformer
 from app.schemas.evaluation_schema import (
     ClassificationMetricItem,
     ConfusionMatrixResponse,
@@ -76,38 +72,17 @@ def _get_test_data(
     return X_train, X_test, y_train, y_test
 
 
-def _load_model_pipeline(model: MLModel) -> tuple[Any | None, dict[str, Pipeline] | Pipeline]:
-    """Return (transformer, classifiers|regressor) from disk.
-
-    The transformer is only loaded when model.opns_enabled is True,
-    matching the training-time behaviour.
-    """
+def _load_model_pipeline(model: MLModel) -> tuple[object | None, dict[str, Pipeline] | Pipeline]:
+    """Return (transformer, classifiers|regressor) from disk."""
     if model.model_file_path is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model files are missing")
 
-    model_path = Path(model.model_file_path)
-    transformer_path = model_path / "opns_transformer.pkl"
-    transformer = None
-
-    if model.opns_enabled:
-        if not transformer_path.exists():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="OPNs transformer file is missing for this model",
-            )
-        transformer = joblib.load(transformer_path)
+    transformer = load_transformer(model.model_file_path) if model.opns_enabled else None
 
     if model.task_type == "regression":
-        regressor_path = model_path / "regressor.pkl"
-        if not regressor_path.exists():
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Regressor file is missing")
-        return transformer, joblib.load(regressor_path)
+        return transformer, load_pipeline(model.model_file_path, "regressor.pkl")
 
-    classifiers: dict[str, Pipeline] = {}
-    for target in model.target_columns:
-        classifier_path = model_path / f"{target}_classifier.pkl"
-        if classifier_path.exists():
-            classifiers[target] = joblib.load(classifier_path)
+    classifiers = load_classifiers(model.model_file_path, model.target_columns)
     return transformer, classifiers
 
 
@@ -165,7 +140,7 @@ def build_confusion_matrices(
     if not isinstance(classifiers, dict):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unexpected model format")
 
-    X_transformed = transformer.transform(X_test) if transformer is not None else X_test
+    X_transformed = apply_transformer(transformer, X_test)
 
     result: list[ConfusionMatrixResponse] = []
     for target in model.target_columns:
@@ -174,13 +149,12 @@ def build_confusion_matrices(
         clf = classifiers[target]
         y_pred = clf.predict(X_transformed)
         y_true = y_test[target]
-        labels = sorted(set(str(v) for v in pd.concat([y_true, pd.Series(y_pred)])))
-        cm = confusion_matrix(y_true, y_pred, labels=labels)
+        labels, matrix = compute_confusion_matrix(y_true, y_pred)
         result.append(
             ConfusionMatrixResponse(
                 target_name=display_target_name(target),
                 labels=labels,
-                matrix=cm.tolist(),
+                matrix=matrix,
             ),
         )
     return result
@@ -200,7 +174,7 @@ def build_roc_curves(
     if not isinstance(classifiers, dict):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unexpected model format")
 
-    X_transformed = transformer.transform(X_test) if transformer is not None else X_test
+    X_transformed = apply_transformer(transformer, X_test)
 
     result: list[RocCurveResponse] = []
     for target in model.target_columns:
@@ -211,24 +185,13 @@ def build_roc_curves(
         unique_classes = sorted(y_true.unique())
 
         curves: list[RocCurveItem] = []
-        if len(unique_classes) == 2 and hasattr(clf, "predict_proba"):
-            proba = clf.predict_proba(X_transformed)[:, 1]
-            fpr, tpr, _ = roc_curve(
-                y_true.map({unique_classes[0]: 0, unique_classes[1]: 1}),
-                proba,
-            )
-            auc = float(roc_auc_score(
-                y_true.map({unique_classes[0]: 0, unique_classes[1]: 1}),
-                proba,
-            ))
-            curves.append(RocCurveItem(fpr=fpr.tolist(), tpr=tpr.tolist(), auc=auc))
-        elif len(unique_classes) > 2 and hasattr(clf, "predict_proba"):
+        if has_predict_proba(clf):
             proba = clf.predict_proba(X_transformed)
-            for idx, label in enumerate(unique_classes):
-                binary_true = (y_true == label).astype(int)
-                fpr, tpr, _ = roc_curve(binary_true, proba[:, idx])
-                auc = float(roc_auc_score(binary_true, proba[:, idx]))
-                curves.append(RocCurveItem(fpr=fpr.tolist(), tpr=tpr.tolist(), auc=auc))
+            curve_data = compute_roc_data(y_true, proba, unique_classes)
+            curves = [
+                RocCurveItem(fpr=c["fpr"], tpr=c["tpr"], auc=c["auc"])
+                for c in curve_data
+            ]
 
         result.append(RocCurveResponse(target_name=display_target_name(target), curves=curves))
     return result
@@ -248,32 +211,23 @@ def build_regression_metrics(
             detail="Model is not a regression model",
         )
 
+    target_name = display_target_name(model.target_columns[0]) if model.target_columns else "target"
+
     _, X_test, _, y_test = _get_test_data(db, model)
     transformer, regressor = _load_model_pipeline(model)
-    X_transformed = transformer.transform(X_test) if transformer is not None else X_test
+    X_transformed = apply_transformer(transformer, X_test)
     predictions = regressor.predict(X_transformed)
 
-    mae = float(mean_absolute_error(y_test, predictions))
-    rmse = float(np.sqrt(mean_squared_error(y_test, predictions)))
-    r2 = float(r2_score(y_test, predictions))
-    mape_val: float | None = None
-    if (y_test != 0).any():
-        mape_val = float(np.mean(np.abs((y_test - predictions) / np.where(y_test != 0, y_test, np.nan))) * 100)
-
-    target_name = display_target_name(model.target_columns[0]) if model.target_columns else "target"
+    from app.ml.trainer import compute_regression_metrics
+    metrics_dict = compute_regression_metrics(y_test, predictions)
     metric = RegressionMetricItem(
         target_name=target_name,
-        mae=round(mae, 4),
-        rmse=round(rmse, 4),
-        r2=round(r2, 4),
-        mape=round(mape_val, 4) if mape_val is not None else None,
+        mae=round(metrics_dict["mae"], 4),
+        rmse=round(metrics_dict["rmse"], 4),
+        r2=round(metrics_dict["r2"], 4),
+        mape=round(metrics_dict["mape"], 4) if metrics_dict["mape"] is not None else None,
     )
-
-    return {
-        "model_id": model.id,
-        "algorithm": model.algorithm,
-        "metrics": metric,
-    }
+    return {"model_id": model.id, "algorithm": model.algorithm, "metrics": metric}
 
 
 def build_predicted_vs_actual(
@@ -285,17 +239,14 @@ def build_predicted_vs_actual(
     if model.task_type != "regression":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a regression model")
 
+    target_name = display_target_name(model.target_columns[0]) if model.target_columns else "target"
     _, X_test, _, y_test = _get_test_data(db, model)
     transformer, regressor = _load_model_pipeline(model)
-    X_transformed = transformer.transform(X_test) if transformer is not None else X_test
+    X_transformed = apply_transformer(transformer, X_test)
     predictions = regressor.predict(X_transformed)
 
-    target_name = display_target_name(model.target_columns[0]) if model.target_columns else "target"
-    return PredictedVsActualResponse(
-        target_name=target_name,
-        actual=[round(float(v), 4) for v in y_test.values],  # type: ignore[arg-type]
-        predicted=[round(float(v), 4) for v in predictions],
-    )
+    actual, predicted = compute_predicted_vs_actual(y_test, predictions)
+    return PredictedVsActualResponse(target_name=target_name, actual=actual, predicted=predicted)
 
 
 def build_residuals(
@@ -307,15 +258,11 @@ def build_residuals(
     if model.task_type != "regression":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a regression model")
 
+    target_name = display_target_name(model.target_columns[0]) if model.target_columns else "target"
     _, X_test, _, y_test = _get_test_data(db, model)
     transformer, regressor = _load_model_pipeline(model)
-    X_transformed = transformer.transform(X_test) if transformer is not None else X_test
+    X_transformed = apply_transformer(transformer, X_test)
     predictions = regressor.predict(X_transformed)
 
-    residuals = y_test.values - predictions  # type: ignore[operator]
-    target_name = display_target_name(model.target_columns[0]) if model.target_columns else "target"
-    return ResidualsResponse(
-        target_name=target_name,
-        residuals=[round(float(v), 4) for v in residuals],
-        predicted=[round(float(v), 4) for v in predictions],
-    )
+    res, pred = compute_residuals(y_test, predictions)
+    return ResidualsResponse(target_name=target_name, residuals=res, predicted=pred)

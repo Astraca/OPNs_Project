@@ -1,18 +1,17 @@
 import pandas as pd
 
+from app.ml.feature_mapper import DEFAULT_MAPPING_CONFIG, apply_mappings
 from app.ml.pairing_strategy import adjacent_pairing, correlation_greedy_pairing, random_pairing
 
 
-DEFAULT_MAPPING_CONFIG = {
-    "sum": True,
-    "diff": True,
-    "abs_diff": True,
-    "product": True,
-    "square_sum": True,
-}
-
-
 class OPNsTransformer:
+    """Ordered-Pair Norms feature transformer.
+
+    Pairs original features and maps each pair to structural features
+    (sum, diff, abs_diff, product, square_sum), producing an expanded
+    feature set for SVM/SVR training.
+    """
+
     def __init__(
         self,
         pairing_method: str = "adjacent",
@@ -40,24 +39,7 @@ class OPNsTransformer:
 
     def transform(self, X):
         dataframe = self._to_dataframe(X)
-        features: dict[str, pd.Series] = {}
-        for left, right in self.pairs_:
-            left_values = pd.to_numeric(dataframe[left], errors="coerce").fillna(0)
-            right_values = pd.to_numeric(dataframe[right], errors="coerce").fillna(0)
-            if self.mapping_config.get("sum", True):
-                features[f"{left}__plus__{right}"] = left_values + right_values
-            if self.mapping_config.get("diff", True):
-                features[f"{left}__minus__{right}"] = left_values - right_values
-            if self.mapping_config.get("abs_diff", True):
-                features[f"{left}__absdiff__{right}"] = (left_values - right_values).abs()
-            if self.mapping_config.get("product", True):
-                features[f"{left}__mul__{right}"] = left_values * right_values
-            if self.mapping_config.get("square_sum", True):
-                features[f"{left}__squaresum__{right}"] = left_values.pow(2) + right_values.pow(2)
-
-        if not features:
-            return pd.DataFrame(index=dataframe.index)
-        return pd.DataFrame(features, index=dataframe.index)
+        return apply_mappings(dataframe, self.pairs_, self.mapping_config)
 
     def fit_transform(self, X, y=None):
         return self.fit(X, y).transform(X)
