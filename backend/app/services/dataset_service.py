@@ -24,17 +24,18 @@ STORAGE_DIR = Path("storage/datasets")
 
 
 def create_dataset(db: Session, current_user: User, payload: DatasetCreateRequest) -> Dataset:
-    # Check for duplicate name under the same user
+    # Check for duplicate name under the same user + task type
     existing = db.scalar(
         select(Dataset).where(
             Dataset.user_id == current_user.id,
+            Dataset.task_type == payload.task_type,
             Dataset.name == payload.name,
         ),
     )
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"数据集名称 '{payload.name}' 已存在，请使用其他名称",
+            detail=f"数据集名称 '{payload.name}' 在当前任务类型下已存在，请使用其他名称",
         )
 
     dataset = Dataset(
@@ -338,7 +339,10 @@ def build_column_summaries(
     for column_name in dataframe.columns:
         series = dataframe[column_name]
         numeric_series = pd.to_numeric(series, errors="coerce")
-        has_numeric_values = numeric_series.notna().any()
+        valid_count = int(numeric_series.notna().sum())
+        total_count = int(len(series))
+        # Only compute stats when at least half the values are valid numeric
+        has_enough_valid = valid_count >= 1 and (total_count == 0 or valid_count >= total_count * 0.5)
         summaries.append(
             DatasetColumn(
                 dataset_id=dataset_id,
@@ -347,10 +351,10 @@ def build_column_summaries(
                 role=infer_column_role(str(column_name), target_columns),
                 missing_count=int(series.isna().sum()),
                 unique_count=int(series.nunique(dropna=True)),
-                mean=float(numeric_series.mean()) if has_numeric_values else None,
-                std=float(numeric_series.std()) if has_numeric_values else None,
-                min_value=float(numeric_series.min()) if has_numeric_values else None,
-                max_value=float(numeric_series.max()) if has_numeric_values else None,
+                mean=float(numeric_series.mean()) if has_enough_valid else None,
+                std=float(numeric_series.std()) if has_enough_valid else None,
+                min_value=float(numeric_series.min()) if has_enough_valid else None,
+                max_value=float(numeric_series.max()) if has_enough_valid else None,
             )
         )
     return summaries

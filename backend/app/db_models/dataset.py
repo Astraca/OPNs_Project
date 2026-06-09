@@ -10,7 +10,7 @@ from app.database import Base
 class Dataset(Base):
     __tablename__ = "datasets"
     __table_args__ = (
-        UniqueConstraint("user_id", "name", name="uq_user_dataset_name"),
+        UniqueConstraint("user_id", "task_type", "name", name="uq_user_dataset_task_name"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

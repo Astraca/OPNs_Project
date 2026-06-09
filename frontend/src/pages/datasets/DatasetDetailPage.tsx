@@ -49,7 +49,7 @@ const DATA_TYPE_COLORS: Record<string, string> = {
 function formatDataType(dtype: string): string {
   if (dtype.startsWith("int")) return "整数";
   if (dtype.startsWith("float")) return "小数";
-  if (dtype === "object") return "文本";
+  if (dtype === "object" || dtype === "string" || dtype.startsWith("str")) return "文本";
   if (dtype.startsWith("bool")) return "布尔";
   if (dtype.startsWith("datetime")) return "日期";
   return dtype;
@@ -389,9 +389,11 @@ export default function DatasetDetailPage() {
               : "暂未识别"}
           </Descriptions.Item>
           <Descriptions.Item label="说明" span={2}>
-            <Typography.Paragraph style={{ whiteSpace: "pre-line", margin: 0 }}>
-              {dataset.description ?? "-"}
-            </Typography.Paragraph>
+            <div className="dataset-description-cell">
+              <Typography.Paragraph style={{ whiteSpace: "pre-line", margin: 0 }}>
+                {dataset.description ?? "-"}
+              </Typography.Paragraph>
+            </div>
           </Descriptions.Item>
         </Descriptions>
       )}
@@ -408,7 +410,7 @@ export default function DatasetDetailPage() {
       )}
 
       {/* First-time upload: Dragger always visible. Re-upload: toolbar → Modal. */}
-      {!dataset?.file_path && (
+      {dataset && !dataset.file_path && (
         <section className="dataset-section dataset-upload">
           <Dragger {...uploadProps}>
             <p className="ant-upload-drag-icon">
