@@ -26,6 +26,7 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const clearSession = useAuthStore((state) => state.clearSession);
+  const selectedKey = menuItems.find((item) => location.pathname.startsWith(item.key))?.key;
 
   function handleLogout() {
     clearSession();
@@ -41,7 +42,7 @@ export default function AppLayout() {
         </div>
         <Menu
           mode="inline"
-          selectedKeys={[location.pathname]}
+          selectedKeys={selectedKey ? [selectedKey] : []}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
         />

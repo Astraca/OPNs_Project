@@ -1,0 +1,23 @@
+.dataset-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dataset-form {
+  max-width: 640px;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.dataset-section {
+  margin-top: 20px;
+}
+
+.dataset-upload {
+  max-width: 720px;
+}

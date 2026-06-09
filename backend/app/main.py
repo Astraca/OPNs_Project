@@ -2,13 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
+from app.api.datasets import router as datasets_router
 from app.config import get_settings
 from app.database import Base, engine
-from app.db_models import User
+from app.db_models import Dataset, DatasetColumn, User
 
 
 settings = get_settings()
-_ = User
+_ = (Dataset, DatasetColumn, User)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -26,6 +27,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(datasets_router)
 
 
 @app.get("/api/health", tags=["system"])

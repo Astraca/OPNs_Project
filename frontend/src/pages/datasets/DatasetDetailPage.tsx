@@ -1,0 +1,121 @@
+import { InboxOutlined, TableOutlined } from "@ant-design/icons";
+import { Button, Descriptions, Space, Table, Typography, Upload, message } from "antd";
+import type { ColumnsType } from "antd/es/table";
+import type { UploadProps } from "antd";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+
+import { getDataset, getDatasetColumns, uploadDatasetFile } from "../../api/datasets";
+import type { Dataset, DatasetColumn } from "../../types/dataset";
+import "./DatasetPages.css";
+
+
+const { Dragger } = Upload;
+
+export default function DatasetDetailPage() {
+  const { id } = useParams();
+  const datasetId = Number(id);
+  const navigate = useNavigate();
+  const [dataset, setDataset] = useState<Dataset | null>(null);
+  const [columns, setColumns] = useState<DatasetColumn[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadDataset = useCallback(async () => {
+    setLoading(true);
+    try {
+      const nextDataset = await getDataset(datasetId);
+      setDataset(nextDataset);
+      if (nextDataset.file_path) {
+        setColumns(await getDatasetColumns(datasetId));
+      }
+    } catch {
+      message.error("数据集详情加载失败");
+    } finally {
+      setLoading(false);
+    }
+  }, [datasetId]);
+
+  const uploadProps: UploadProps = {
+    name: "file",
+    multiple: false,
+    accept: ".csv,.xlsx",
+    showUploadList: false,
+    beforeUpload: async (file) => {
+      try {
+        const updated = await uploadDatasetFile(datasetId, file);
+        setDataset(updated);
+        setColumns(await getDatasetColumns(datasetId));
+        message.success("文件上传成功");
+      } catch {
+        message.error("文件上传失败，请确认文件格式为 CSV 或 XLSX");
+      }
+      return false;
+    },
+  };
+
+  useEffect(() => {
+    if (Number.isFinite(datasetId)) {
+      void loadDataset();
+    }
+  }, [datasetId, loadDataset]);
+
+  const columnDefinitions: ColumnsType<DatasetColumn> = [
+    { title: "字段", dataIndex: "column_name" },
+    { title: "类型", dataIndex: "data_type" },
+    { title: "角色", dataIndex: "role" },
+    { title: "缺失值", dataIndex: "missing_count" },
+    { title: "唯一值", dataIndex: "unique_count" },
+    { title: "均值", dataIndex: "mean", render: (value: number | null) => value?.toFixed(4) ?? "-" },
+    { title: "最小值", dataIndex: "min_value", render: (value: number | null) => value?.toFixed(4) ?? "-" },
+    { title: "最大值", dataIndex: "max_value", render: (value: number | null) => value?.toFixed(4) ?? "-" },
+  ];
+
+  return (
+    <main>
+      <div className="dataset-toolbar">
+        <Typography.Title level={3}>{dataset?.name ?? "数据集详情"}</Typography.Title>
+        <Space>
+          <Button icon={<TableOutlined />} disabled={!dataset?.file_path} onClick={() => navigate("preview")}>
+            预览数据
+          </Button>
+        </Space>
+      </div>
+
+      {dataset && (
+        <Descriptions bordered column={2} size="small">
+          <Descriptions.Item label="任务类型">{dataset.task_type}</Descriptions.Item>
+          <Descriptions.Item label="文件类型">{dataset.file_type ?? "未上传"}</Descriptions.Item>
+          <Descriptions.Item label="样本数">{dataset.sample_count}</Descriptions.Item>
+          <Descriptions.Item label="字段数">{dataset.feature_count}</Descriptions.Item>
+          <Descriptions.Item label="目标字段" span={2}>
+            {dataset.target_columns.length ? dataset.target_columns.join(", ") : "暂未识别"}
+          </Descriptions.Item>
+          <Descriptions.Item label="说明" span={2}>
+            {dataset.description ?? "-"}
+          </Descriptions.Item>
+        </Descriptions>
+      )}
+
+      <section className="dataset-section dataset-upload">
+        <Dragger {...uploadProps}>
+          <p className="ant-upload-drag-icon">
+            <InboxOutlined />
+          </p>
+          <p className="ant-upload-text">上传 CSV 或 XLSX 文件</p>
+          <p className="ant-upload-hint">系统会读取字段类型、缺失值、唯一值和 IgAN M/E/S/T/C 目标字段。</p>
+        </Dragger>
+      </section>
+
+      <section className="dataset-section">
+        <Typography.Title level={4}>字段统计</Typography.Title>
+        <Table
+          rowKey="id"
+          columns={columnDefinitions}
+          dataSource={columns}
+          loading={loading}
+          scroll={{ x: true }}
+        />
+      </section>
+    </main>
+  );
+}
