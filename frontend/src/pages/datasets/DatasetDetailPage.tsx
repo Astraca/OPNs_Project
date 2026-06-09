@@ -89,7 +89,7 @@ export default function DatasetDetailPage() {
         setColumns(await getDatasetColumns(datasetId));
         message.success("文件上传成功");
       } catch {
-        message.error("文件上传失败，请确认文件格式是否正确");
+        message.error("文件上传失败，请确认文件格式正确且不超过 10 MB");
       }
       return false;
     },

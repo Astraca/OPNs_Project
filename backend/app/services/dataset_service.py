@@ -77,6 +77,10 @@ def delete_dataset(db: Session, current_user: User, dataset_id: int) -> None:
     db.commit()
 
 
+# 10 MB max file size
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
 async def save_upload_file(db: Session, current_user: User, dataset_id: int, file: UploadFile) -> Dataset:
     dataset = get_dataset(db, current_user, dataset_id)
     suffix = Path(file.filename or "").suffix.lower()
@@ -86,20 +90,32 @@ async def save_upload_file(db: Session, current_user: User, dataset_id: int, fil
             detail=f"Unsupported file type: {suffix}. Supported: {', '.join(sorted(ALLOWED_SUFFIXES))}",
         )
 
+    # Read and validate file size
+    raw_bytes = await file.read()
+    if len(raw_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large ({len(raw_bytes)} bytes). Maximum is {MAX_UPLOAD_BYTES} bytes (10 MB).",
+        )
+
+    # ── Clean up old file before saving new one ───────────────────────────
+    if dataset.file_path:
+        old_path = Path(dataset.file_path)
+        if old_path.exists():
+            old_path.unlink()
+
     STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     stored_name = f"dataset_{dataset.id}_{uuid4().hex}{suffix}"
     file_path = STORAGE_DIR / stored_name
-    file_path.write_bytes(await file.read())
+    file_path.write_bytes(raw_bytes)
 
     dataframe = read_dataframe(file_path)
     columns = [str(column) for column in dataframe.columns]
 
     # Auto-detect target columns
     target_columns = get_output_columns(columns)
-    # Fallback: try M/E/S/T/C legacy names
     if not target_columns:
         target_columns = get_mestc_target_columns(columns)
-    # Suggest candidates if still empty
     if not target_columns:
         target_columns = suggest_target_columns(columns, dataset.task_type)
 
@@ -109,6 +125,7 @@ async def save_upload_file(db: Session, current_user: User, dataset_id: int, fil
     dataset.feature_count = int(len(dataframe.columns))
     dataset.target_columns = target_columns
 
+    # Replace old column metadata
     db.execute(delete(DatasetColumn).where(DatasetColumn.dataset_id == dataset.id))
     summaries = build_column_summaries(dataset.id, dataframe, target_columns)
 
@@ -117,25 +134,30 @@ async def save_upload_file(db: Session, current_user: User, dataset_id: int, fil
     target_set = set(target_columns)
     auto_ignored: list[str] = []
     for col in summaries:
-        # Keep target columns untouched — user must decide
         if col.column_name in target_set:
             continue
-        # Ignore features where ALL values are missing
         if col.missing_count >= total_samples:
             col.role = "ignored"
             auto_ignored.append(f"{col.column_name}(全缺失)")
-        # Ignore constant features (only 1 unique value, no variance)
         elif col.unique_count <= 1:
             col.role = "ignored"
             auto_ignored.append(f"{col.column_name}(常量)")
 
     db.add_all(summaries)
 
-    # Store auto-ignore note in dataset description for user visibility
+    # ── Update description: strip old auto-ignore notes, append new ones ──
+    _AUTO_IGNORE_PREFIX = "【自动忽略低质量特征】"
+    existing_desc = dataset.description or ""
+    # Remove any previous auto-ignore line
+    lines = existing_desc.split("\n")
+    cleaned_lines = [line for line in lines if not line.startswith(_AUTO_IGNORE_PREFIX)]
+    base_desc = "\n".join(cleaned_lines).strip()
+
     if auto_ignored:
-        note = "【自动忽略低质量特征】" + "、".join(auto_ignored)
-        existing = dataset.description or ""
-        dataset.description = f"{existing}\n{note}".strip() if existing else note
+        note = _AUTO_IGNORE_PREFIX + "、".join(auto_ignored)
+        dataset.description = f"{base_desc}\n{note}".strip() if base_desc else note
+    else:
+        dataset.description = base_desc or None
 
     db.commit()
     db.refresh(dataset)
