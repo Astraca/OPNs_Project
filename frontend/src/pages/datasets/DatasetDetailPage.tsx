@@ -1,7 +1,9 @@
 import {
   BarChartOutlined,
   InboxOutlined,
+  ReloadOutlined,
   TableOutlined,
+  UploadOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
 import type { UploadProps } from "antd";
@@ -61,6 +63,7 @@ export default function DatasetDetailPage() {
   const [columns, setColumns] = useState<DatasetColumn[]>([]);
   const [loading, setLoading] = useState(false);
   const [savingRoles, setSavingRoles] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
 
   const loadDataset = useCallback(async () => {
     setLoading(true);
@@ -87,6 +90,7 @@ export default function DatasetDetailPage() {
         const updated = await uploadDatasetFile(datasetId, file);
         setDataset(updated);
         setColumns(await getDatasetColumns(datasetId));
+        setShowUpload(false);
         message.success("文件上传成功");
       } catch {
         message.error("文件上传失败，请确认文件格式正确且不超过 10 MB");
@@ -399,17 +403,52 @@ export default function DatasetDetailPage() {
       )}
 
       <section className="dataset-section dataset-upload">
-        <Dragger {...uploadProps}>
-          <p className="ant-upload-drag-icon">
-            <InboxOutlined />
-          </p>
-          <p className="ant-upload-text">
-            上传数据文件（CSV / XLSX / TXT / DAT / DATA）
-          </p>
-          <p className="ant-upload-hint">
-            系统会自动检测分隔符和表头，读取字段类型、缺失值、唯一值并尝试识别目标字段。
-          </p>
-        </Dragger>
+        {!showUpload ? (
+          <div className="dataset-upload-placeholder">
+            {dataset?.file_path ? (
+              <Button
+                type="default"
+                icon={<ReloadOutlined />}
+                size="large"
+                onClick={() => setShowUpload(true)}
+              >
+                重新上传 / 更新数据集文件
+              </Button>
+            ) : (
+              <Button
+                type="primary"
+                icon={<UploadOutlined />}
+                size="large"
+                onClick={() => setShowUpload(true)}
+              >
+                上传数据集文件
+              </Button>
+            )}
+            <Typography.Text type="secondary" style={{ display: "block", marginTop: 8 }}>
+              支持 CSV / XLSX / TXT / DAT / DATA 格式，最大 10 MB
+            </Typography.Text>
+          </div>
+        ) : (
+          <>
+            <Dragger {...uploadProps}>
+              <p className="ant-upload-drag-icon">
+                <InboxOutlined />
+              </p>
+              <p className="ant-upload-text">
+                上传数据文件（CSV / XLSX / TXT / DAT / DATA）
+              </p>
+              <p className="ant-upload-hint">
+                系统会自动检测分隔符和表头，读取字段类型、缺失值、唯一值并尝试识别目标字段。
+              </p>
+            </Dragger>
+            <Button
+              style={{ marginTop: 12 }}
+              onClick={() => setShowUpload(false)}
+            >
+              取消上传
+            </Button>
+          </>
+        )}
       </section>
 
       {columns.length > 0 && (

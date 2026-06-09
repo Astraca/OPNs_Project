@@ -22,6 +22,14 @@
   max-width: 720px;
 }
 
+.dataset-upload-placeholder {
+  padding: 32px;
+  text-align: center;
+  background: #fafbfc;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+}
+
 .dataset-chart-section {
   margin-top: 20px;
   padding: 20px;
