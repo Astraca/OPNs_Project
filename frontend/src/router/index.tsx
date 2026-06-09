@@ -9,6 +9,9 @@ import DatasetDetailPage from "../pages/datasets/DatasetDetailPage";
 import DatasetListPage from "../pages/datasets/DatasetListPage";
 import DatasetPreviewPage from "../pages/datasets/DatasetPreviewPage";
 import DatasetProfilePage from "../pages/datasets/DatasetProfilePage";
+import ModelEvaluationPage from "../pages/models/ModelEvaluationPage";
+import ModelListPage from "../pages/models/ModelListPage";
+import ModelTrainPage from "../pages/models/ModelTrainPage";
 import PlaceholderPage from "../pages/PlaceholderPage";
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -30,7 +33,9 @@ export const router = createBrowserRouter([
           { path: "datasets/:id", element: <DatasetDetailPage /> },
           { path: "datasets/:id/preview", element: <DatasetPreviewPage /> },
           { path: "datasets/:id/profile", element: <DatasetProfilePage /> },
-          { path: "models", element: <PlaceholderPage title="模型训练" /> },
+          { path: "models", element: <ModelListPage /> },
+          { path: "models/train", element: <ModelTrainPage /> },
+          { path: "models/:id/evaluation", element: <ModelEvaluationPage /> },
           { path: "reports", element: <PlaceholderPage title="分析报告" /> },
         ],
       },
