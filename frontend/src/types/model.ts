@@ -29,6 +29,7 @@ export type ModelTrainPayload = {
   dataset_id: number;
   model_name: string;
   algorithm: ModelAlgorithm;
+  task_type: string;
   target_columns: string[];
   pairing_method: PairingMethod;
   test_size: number;

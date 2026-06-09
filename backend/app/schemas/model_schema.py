@@ -14,6 +14,7 @@ class ModelTrainRequest(BaseModel):
     dataset_id: int
     model_name: str = Field(min_length=1, max_length=128)
     algorithm: Algorithm = "OPNs-SVM"
+    task_type: str = "multi_output_classification"
     target_columns: list[str] = Field(default_factory=lambda: ["out-M", "out-E", "out-S", "out-T", "out-C"])
     feature_columns: list[str] | None = None
     pairing_method: PairingMethod = "adjacent"

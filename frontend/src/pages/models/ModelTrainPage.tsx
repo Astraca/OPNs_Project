@@ -111,7 +111,8 @@ export default function ModelTrainPage() {
         message.success("回归模型训练完成");
         navigate(`/models/${model.id}/evaluation`);
       } else {
-        const model = await trainModel(values as ModelTrainPayload);
+        const payload = { ...values as ModelTrainPayload, task_type: mode };
+        const model = await trainModel(payload);
         message.success("模型训练完成");
         navigate(`/models/${model.id}/evaluation`);
       }
