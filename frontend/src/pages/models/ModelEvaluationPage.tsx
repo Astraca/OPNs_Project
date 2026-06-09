@@ -15,11 +15,13 @@ import {
 } from "../../api/models";
 import AIReportPanel from "../ai/AIReportPanel";
 import ConfusionMatrixHeatmap from "../../components/Charts/ConfusionMatrixHeatmap";
+import ModelMetricsBarChart from "../../components/Charts/ModelMetricsBarChart";
 import PredictedVsActualChart from "../../components/Charts/PredictedVsActualChart";
 import ResidualsChart from "../../components/Charts/ResidualsChart";
 import RocCurveChart from "../../components/Charts/RocCurveChart";
 import type { AIAnalysisReport } from "../../types/ai";
 import type {
+  ClassificationMetricItem,
   ConfusionMatrixData,
   MLModel,
   ModelMetric,
@@ -110,6 +112,18 @@ export default function ModelEvaluationPage() {
     return Array.from(grouped.values());
   }, [metrics]);
 
+  const classificationMetrics: ClassificationMetricItem[] = useMemo(
+    () =>
+      metricRows.map((row) => ({
+        target_name: row.target_name,
+        accuracy: row.accuracy ?? 0,
+        precision: row.precision ?? 0,
+        recall: row.recall ?? 0,
+        f1: row.f1 ?? 0,
+      })),
+    [metricRows],
+  );
+
   const classificationColumns: ColumnsType<MetricRow> = [
     { title: "标签", dataIndex: "target_name" },
     { title: "Accuracy", dataIndex: "accuracy", render: (v: number | undefined) => v?.toFixed(4) ?? "-" },
@@ -155,10 +169,16 @@ export default function ModelEvaluationPage() {
 
       {/* Classification metrics */}
       {!isRegression && (
-        <section className="model-section">
-          <Typography.Title level={4}>分类指标</Typography.Title>
-          <Table rowKey="target_name" columns={classificationColumns} dataSource={metricRows} loading={loading} />
-        </section>
+        <>
+          <section className="model-section">
+            <Typography.Title level={4}>指标对比</Typography.Title>
+            <ModelMetricsBarChart metrics={classificationMetrics} />
+          </section>
+          <section className="model-section">
+            <Typography.Title level={4}>分类指标</Typography.Title>
+            <Table rowKey="target_name" columns={classificationColumns} dataSource={metricRows} loading={loading} />
+          </section>
+        </>
       )}
 
       {/* Regression metrics */}

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -72,3 +73,12 @@ def prediction_history(
     current_user: User = Depends(get_current_user),
 ):
     return prediction_service.list_prediction_jobs(db, current_user)
+
+
+@router.get("/batch/{job_id}/download")
+def download_batch_prediction(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return prediction_service.download_prediction_result(db, current_user, job_id)

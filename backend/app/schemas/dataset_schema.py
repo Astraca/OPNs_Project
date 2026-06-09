@@ -99,3 +99,14 @@ class NumericStatisticsResponse(BaseModel):
 class CorrelationMatrixResponse(BaseModel):
     columns: list[str]
     matrix: list[list[float | None]]
+
+
+class NumericDistributionItem(BaseModel):
+    bin_centers: list[float]
+    counts: list[int]
+    bin_edges: list[float]
+
+
+class NumericDistributionResponse(BaseModel):
+    columns: list[str]
+    distributions: dict[str, NumericDistributionItem]

@@ -1,7 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import AppLayout from "../layouts/AppLayout";
-import PlaceholderPage from "../pages/PlaceholderPage";
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
 import DashboardPage from "../pages/dashboard/DashboardPage";
@@ -18,6 +17,7 @@ import IganSinglePredictionPage from "../pages/prediction/IganSinglePredictionPa
 import PredictionHistoryPage from "../pages/prediction/PredictionHistoryPage";
 import RegressionBatchPredictionPage from "../pages/prediction/RegressionBatchPredictionPage";
 import RegressionSinglePredictionPage from "../pages/prediction/RegressionSinglePredictionPage";
+import ReportListPage from "../pages/reports/ReportListPage";
 import ProtectedRoute from "./ProtectedRoute";
 
 
@@ -46,7 +46,7 @@ export const router = createBrowserRouter([
           { path: "prediction/regression/single", element: <RegressionSinglePredictionPage /> },
           { path: "prediction/regression/batch", element: <RegressionBatchPredictionPage /> },
           { path: "prediction/history", element: <PredictionHistoryPage /> },
-          { path: "reports", element: <PlaceholderPage title="分析报告" /> },
+          { path: "reports", element: <ReportListPage /> },
         ],
       },
     ],

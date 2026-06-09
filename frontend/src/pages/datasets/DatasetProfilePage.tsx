@@ -11,17 +11,20 @@ import {
   getDatasetProfile,
   getLabelDistributionChart,
   getMissingValuesChart,
+  getNumericDistributionChart,
   getNumericStatisticsChart,
 } from "../../api/datasets";
 import AIReportPanel from "../ai/AIReportPanel";
 import CorrelationHeatmap from "../../components/Charts/CorrelationHeatmap";
 import LabelDistributionChart from "../../components/Charts/LabelDistributionChart";
 import MissingValuesBarChart from "../../components/Charts/MissingValuesBarChart";
+import NumericDistributionChart from "../../components/Charts/NumericDistributionChart";
 import type {
   CorrelationMatrixData,
   DatasetProfile,
   LabelDistributionData,
   MissingValuesChartData,
+  NumericDistributionData,
   NumericStatisticsItem,
 } from "../../types/dataset";
 import type { AIAnalysisReport } from "../../types/ai";
@@ -38,6 +41,7 @@ export default function DatasetProfilePage() {
   const [labelDistribution, setLabelDistribution] = useState<LabelDistributionData | null>(null);
   const [correlation, setCorrelation] = useState<CorrelationMatrixData | null>(null);
   const [numericStats, setNumericStats] = useState<NumericStatisticsItem[]>([]);
+  const [numericDist, setNumericDist] = useState<NumericDistributionData | null>(null);
   const [aiReport, setAiReport] = useState<AIAnalysisReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [generatingAI, setGeneratingAI] = useState(false);
@@ -46,18 +50,21 @@ export default function DatasetProfilePage() {
     async function loadProfile() {
       setLoading(true);
       try {
-        const [nextProfile, nextMissing, nextDistribution, nextCorrelation, nextStats] = await Promise.all([
-          getDatasetProfile(datasetId),
-          getMissingValuesChart(datasetId),
-          getLabelDistributionChart(datasetId),
-          getCorrelationMatrixChart(datasetId),
-          getNumericStatisticsChart(datasetId),
-        ]);
+        const [nextProfile, nextMissing, nextDistribution, nextCorrelation, nextStats, nextHist] =
+          await Promise.all([
+            getDatasetProfile(datasetId),
+            getMissingValuesChart(datasetId),
+            getLabelDistributionChart(datasetId),
+            getCorrelationMatrixChart(datasetId),
+            getNumericStatisticsChart(datasetId),
+            getNumericDistributionChart(datasetId).catch(() => null),
+          ]);
         setProfile(nextProfile);
         setMissingValues(nextMissing);
         setLabelDistribution(nextDistribution);
         setCorrelation(nextCorrelation);
         setNumericStats(nextStats.items);
+        setNumericDist(nextHist);
       } catch {
         message.error("数据分析加载失败，请确认已上传数据文件");
       } finally {
@@ -137,6 +144,11 @@ export default function DatasetProfilePage() {
       <section className="dataset-chart-section">
         <Typography.Title level={4}>相关性热力图</Typography.Title>
         {correlation && <CorrelationHeatmap data={correlation} />}
+      </section>
+
+      <section className="dataset-chart-section">
+        <Typography.Title level={4}>数值特征分布</Typography.Title>
+        {numericDist && <NumericDistributionChart data={numericDist} />}
       </section>
 
       <section className="dataset-chart-section">

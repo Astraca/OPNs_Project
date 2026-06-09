@@ -14,6 +14,7 @@ from app.schemas.dataset_schema import (
     DatasetResponse,
     LabelDistributionResponse,
     MissingValuesChartResponse,
+    NumericDistributionResponse,
     NumericStatisticsResponse,
 )
 from app.services import dataset_service
@@ -138,3 +139,14 @@ def get_correlation_matrix_chart(
     current_user: User = Depends(get_current_user),
 ):
     return dataset_service.get_correlation_matrix_chart(db, current_user, dataset_id)
+
+
+@router.get("/{dataset_id}/charts/numeric-distribution", response_model=NumericDistributionResponse)
+def get_numeric_distribution_chart(
+    dataset_id: int,
+    column: str | None = None,
+    bins: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return dataset_service.get_numeric_distribution_chart(db, current_user, dataset_id, column, bins)

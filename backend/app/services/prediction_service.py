@@ -9,6 +9,8 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from fastapi.responses import FileResponse
+
 from app.db_models.prediction import PredictionJob, PredictionResult
 from app.db_models.user import User
 from app.schemas.prediction_schema import RESEARCH_DISCLAIMER
@@ -306,3 +308,19 @@ def save_prediction_job(
     db.commit()
     db.refresh(job)
     return job
+
+
+def download_prediction_result(db: Session, current_user: User, job_id: int) -> FileResponse:
+    job = db.get(PredictionJob, job_id)
+    if job is None or job.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prediction job not found")
+    if job.output_file_path is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No output file for this job")
+    output_path = Path(job.output_file_path)
+    if not output_path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Output file not found on disk")
+    return FileResponse(
+        path=str(output_path),
+        filename=f"prediction_results_{job.id}.csv",
+        media_type="text/csv",
+    )

@@ -9,6 +9,7 @@ import type {
   CorrelationMatrixData,
   LabelDistributionData,
   MissingValuesChartData,
+  NumericDistributionData,
   NumericStatisticsData,
 } from "../types/dataset";
 
@@ -78,5 +79,12 @@ export async function getNumericStatisticsChart(id: number) {
 
 export async function getCorrelationMatrixChart(id: number) {
   const { data } = await request.get<CorrelationMatrixData>(`/datasets/${id}/charts/correlation`);
+  return data;
+}
+
+export async function getNumericDistributionChart(id: number) {
+  const { data } = await request.get<NumericDistributionData>(
+    `/datasets/${id}/charts/numeric-distribution`,
+  );
   return data;
 }

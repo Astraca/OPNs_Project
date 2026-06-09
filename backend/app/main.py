@@ -7,13 +7,36 @@ from app.api.datasets import router as datasets_router
 from app.api.evaluation import router as evaluation_router
 from app.api.models import router as models_router
 from app.api.predictions import router as predictions_router
+from app.api.reports import router as reports_router
 from app.config import get_settings
 from app.database import Base, engine
-from app.db_models import AIAnalysisReport, Dataset, DatasetColumn, MLModel, ModelMetric, PredictionJob, PredictionResult, TrainingRun, User
+from app.db_models import (
+    AIAnalysisReport,
+    Dataset,
+    DatasetColumn,
+    MLModel,
+    ModelMetric,
+    PredictionJob,
+    PredictionResult,
+    Report,
+    TrainingRun,
+    User,
+)
 
 
 settings = get_settings()
-_ = (AIAnalysisReport, Dataset, DatasetColumn, MLModel, ModelMetric, PredictionJob, PredictionResult, TrainingRun, User)
+_ = (
+    AIAnalysisReport,
+    Dataset,
+    DatasetColumn,
+    MLModel,
+    ModelMetric,
+    PredictionJob,
+    PredictionResult,
+    Report,
+    TrainingRun,
+    User,
+)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -36,6 +59,7 @@ app.include_router(datasets_router)
 app.include_router(evaluation_router)
 app.include_router(models_router)
 app.include_router(predictions_router)
+app.include_router(reports_router)
 
 
 @app.get("/api/health", tags=["system"])

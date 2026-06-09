@@ -217,6 +217,51 @@ def get_correlation_matrix_chart(db: Session, current_user: User, dataset_id: in
     return {"columns": columns, "matrix": matrix}
 
 
+def get_numeric_distribution_chart(
+    db: Session,
+    current_user: User,
+    dataset_id: int,
+    column: str | None = None,
+    bins: int = 20,
+) -> dict[str, Any]:
+    """Return histogram data for numeric feature columns."""
+    dataset = get_dataset(db, current_user, dataset_id)
+    dataframe = read_dataset_file(dataset)
+    dataset_columns = get_dataset_columns(db, current_user, dataset_id)
+    feature_columns = [
+        col.column_name for col in dataset_columns
+        if col.role == "feature" and col.mean is not None
+    ]
+    if not feature_columns:
+        feature_columns = get_default_feature_columns(
+            [str(c) for c in dataframe.columns], dataset.target_columns,
+        )
+
+    numeric_dataframe = dataframe[feature_columns].apply(pd.to_numeric, errors="coerce")
+
+    targets = column or feature_columns  # type: ignore[assignment]
+    if isinstance(targets, str):
+        targets = [targets]
+
+    distributions: dict[str, dict[str, list[float]]] = {}
+    for col in targets:  # type: ignore[assignment]
+        col_str = str(col)
+        if col_str not in numeric_dataframe.columns:
+            continue
+        series = numeric_dataframe[col_str].dropna()
+        if series.empty:
+            continue
+        counts, bin_edges = pd.cut(series, bins=min(bins, len(series.unique())), retbins=True)  # type: ignore[call-overload]
+        hist_values = counts.value_counts().sort_index()  # type: ignore[attr-defined]
+        distributions[col_str] = {
+            "bin_centers": [round(float((bin_edges[i] + bin_edges[i + 1]) / 2), 4) for i in range(len(bin_edges) - 1)],
+            "counts": [int(v) for v in hist_values.values],
+            "bin_edges": [round(float(v), 4) for v in bin_edges],
+        }
+
+    return {"columns": list(distributions.keys()), "distributions": distributions}
+
+
 def read_dataset_file(dataset: Dataset) -> pd.DataFrame:
     if dataset.file_path is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Dataset file has not been uploaded")

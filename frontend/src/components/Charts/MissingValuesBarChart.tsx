@@ -20,11 +20,11 @@ export default function MissingValuesBarChart({ data }: MissingValuesBarChartPro
         trigger: "axis",
         valueFormatter: (value) => `${value}`,
       },
-      grid: { left: 56, right: 24, top: 28, bottom: 80 },
+      grid: { left: 56, right: 24, top: 28, bottom: 96 },
       xAxis: {
         type: "category",
         data: items.map((item) => displayFieldName(item.column_name)),
-        axisLabel: { rotate: 35 },
+        axisLabel: { rotate: 35, interval: 0 },
       },
       yAxis: { type: "value", name: "缺失数" },
       series: [

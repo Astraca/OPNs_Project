@@ -28,7 +28,7 @@ export default function PredictedVsActualChart({ data }: Props) {
           return `真实值：${value[0]?.toFixed(4) ?? "-"}<br/>预测值：${value[1]?.toFixed(4) ?? "-"}`;
         },
       },
-      grid: { left: 56, right: 24, top: 36, bottom: 56 },
+      grid: { left: 60, right: 28, top: 36, bottom: 64 },
       xAxis: {
         type: "value",
         name: "真实值",

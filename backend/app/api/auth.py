@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -6,7 +7,12 @@ from app.db_models.user import User
 from app.dependencies import get_current_user
 from app.schemas.auth_schema import TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
 from app.services.auth_service import authenticate_user, create_user, get_existing_user
-from app.utils.security import create_access_token
+from app.utils.security import create_access_token, hash_password, verify_password
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8, max_length=72)
 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -41,6 +47,19 @@ def login(payload: UserLoginRequest, db: Session = Depends(get_db)) -> TokenResp
 @router.get("/me", response_model=UserResponse)
 def read_me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
+
+
+@router.put("/password")
+def change_password(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, str]:
+    if not verify_password(payload.old_password, current_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect current password")
+    current_user.password_hash = hash_password(payload.new_password)
+    db.commit()
+    return {"message": "Password changed"}
 
 
 @router.post("/logout")

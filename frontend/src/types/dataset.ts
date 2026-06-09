@@ -86,3 +86,14 @@ export type CorrelationMatrixData = {
   columns: string[];
   matrix: (number | null)[][];
 };
+
+export type NumericDistributionItem = {
+  bin_centers: number[];
+  counts: number[];
+  bin_edges: number[];
+};
+
+export type NumericDistributionData = {
+  columns: string[];
+  distributions: Record<string, NumericDistributionItem>;
+};

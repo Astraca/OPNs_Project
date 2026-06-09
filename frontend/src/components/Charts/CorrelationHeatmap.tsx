@@ -29,7 +29,7 @@ export default function CorrelationHeatmap({ data }: CorrelationHeatmapProps) {
           return `相关系数：${coefficient ?? "-"}`;
         },
       },
-      grid: { left: 96, right: 32, top: 32, bottom: 92 },
+      grid: { left: 112, right: 32, top: 32, bottom: 100 },
       xAxis: {
         type: "category",
         data: data.columns.map(displayFieldName),

@@ -34,7 +34,7 @@ function SingleConfusionMatrix({ item }: { item: ConfusionMatrixData }) {
   const option = useMemo<EChartsOption>(
     () => ({
       tooltip: { position: "top" },
-      grid: { left: 48, right: 32, top: 32, bottom: 48 },
+      grid: { left: 56, right: 32, top: 32, bottom: 72 },
       xAxis: {
         type: "category",
         data: item.labels,
