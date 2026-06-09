@@ -1,7 +1,7 @@
 import {
   BarChartOutlined,
   InboxOutlined,
-  ReloadOutlined,
+  SwapOutlined,
   TableOutlined,
   UploadOutlined,
   WarningOutlined,
@@ -11,6 +11,7 @@ import {
   Alert,
   Button,
   Descriptions,
+  Modal,
   Progress,
   Select,
   Space,
@@ -343,6 +344,11 @@ export default function DatasetDetailPage() {
           {dataset?.name ?? "数据集详情"}
         </Typography.Title>
         <Space>
+          {dataset?.file_path && (
+            <Button icon={<SwapOutlined />} onClick={() => setShowUpload(true)}>
+              更新数据集
+            </Button>
+          )}
           <Button
             icon={<TableOutlined />}
             disabled={!dataset?.file_path}
@@ -402,19 +408,11 @@ export default function DatasetDetailPage() {
         />
       )}
 
-      <section className="dataset-section dataset-upload">
-        {!showUpload ? (
-          <div className="dataset-upload-placeholder">
-            {dataset?.file_path ? (
-              <Button
-                type="default"
-                icon={<ReloadOutlined />}
-                size="large"
-                onClick={() => setShowUpload(true)}
-              >
-                重新上传 / 更新数据集文件
-              </Button>
-            ) : (
+      {/* First-time upload: show inline. Re-upload: via toolbar button → Modal. */}
+      {!dataset?.file_path && (
+        <section className="dataset-section dataset-upload">
+          {!showUpload ? (
+            <div className="dataset-upload-placeholder">
               <Button
                 type="primary"
                 icon={<UploadOutlined />}
@@ -423,33 +421,55 @@ export default function DatasetDetailPage() {
               >
                 上传数据集文件
               </Button>
-            )}
-            <Typography.Text type="secondary" style={{ display: "block", marginTop: 8 }}>
-              支持 CSV / XLSX / TXT / DAT / DATA 格式，最大 10 MB
-            </Typography.Text>
-          </div>
-        ) : (
-          <>
-            <Dragger {...uploadProps}>
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined />
-              </p>
-              <p className="ant-upload-text">
-                上传数据文件（CSV / XLSX / TXT / DAT / DATA）
-              </p>
-              <p className="ant-upload-hint">
-                系统会自动检测分隔符和表头，读取字段类型、缺失值、唯一值并尝试识别目标字段。
-              </p>
-            </Dragger>
-            <Button
-              style={{ marginTop: 12 }}
-              onClick={() => setShowUpload(false)}
-            >
-              取消上传
-            </Button>
-          </>
-        )}
-      </section>
+              <Typography.Text type="secondary" style={{ display: "block", marginTop: 8 }}>
+                支持 CSV / XLSX / TXT / DAT / DATA 格式，最大 10 MB
+              </Typography.Text>
+            </div>
+          ) : (
+            <>
+              <Dragger {...uploadProps}>
+                <p className="ant-upload-drag-icon">
+                  <InboxOutlined />
+                </p>
+                <p className="ant-upload-text">
+                  上传数据文件（CSV / XLSX / TXT / DAT / DATA）
+                </p>
+                <p className="ant-upload-hint">
+                  系统会自动检测分隔符和表头，读取字段类型、缺失值、唯一值并尝试识别目标字段。
+                </p>
+              </Dragger>
+              <Button style={{ marginTop: 12 }} onClick={() => setShowUpload(false)}>
+                取消上传
+              </Button>
+            </>
+          )}
+        </section>
+      )}
+
+      {/* Re-upload modal for datasets that already have a file */}
+      <Modal
+        title="更新数据集文件"
+        open={!!dataset?.file_path && showUpload}
+        onCancel={() => setShowUpload(false)}
+        footer={null}
+        destroyOnClose
+      >
+        <Alert
+          type="warning"
+          showIcon
+          message="重新上传将替换当前数据，字段角色和统计分析将重新生成。"
+          style={{ marginBottom: 16 }}
+        />
+        <Dragger {...uploadProps}>
+          <p className="ant-upload-drag-icon">
+            <InboxOutlined />
+          </p>
+          <p className="ant-upload-text">拖拽或点击选择文件</p>
+          <p className="ant-upload-hint">
+            支持 CSV / XLSX / TXT / DAT / DATA 格式，最大 10 MB
+          </p>
+        </Dragger>
+      </Modal>
 
       {columns.length > 0 && (
         <section className="dataset-section">
