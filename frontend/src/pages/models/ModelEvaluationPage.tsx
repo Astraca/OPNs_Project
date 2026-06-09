@@ -164,6 +164,7 @@ export default function ModelEvaluationPage() {
           <Descriptions.Item label="目标字段">{model.target_columns.map(displayFieldName).join(", ")}</Descriptions.Item>
           <Descriptions.Item label="特征数">{model.feature_columns.length}</Descriptions.Item>
           <Descriptions.Item label="配对方式">{displayPairingMethod(model.pairing_method)}</Descriptions.Item>
+          <Descriptions.Item label="测试集比例">{((model.hyperparameters as Record<string,unknown>)?.test_size as number ?? 0.2) * 100}%</Descriptions.Item>
           <Descriptions.Item label="模型目录" span={2}>{model.model_file_path ?? "-"}</Descriptions.Item>
         </Descriptions>
       )}
