@@ -98,6 +98,46 @@ def generate_prediction_explanation(db: Session, current_user: User, prediction_
     )
 
 
+def get_latest_dataset_analysis(db: Session, current_user: User, dataset_id: int) -> AIAnalysisReport:
+    statement = (
+        select(AIAnalysisReport)
+        .where(
+            AIAnalysisReport.user_id == current_user.id,
+            AIAnalysisReport.dataset_id == dataset_id,
+            AIAnalysisReport.analysis_type == "dataset_analysis",
+        )
+        .order_by(AIAnalysisReport.created_at.desc())
+        .limit(1)
+    )
+    report = db.scalar(statement)
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No AI analysis found for this dataset. Generate one first via POST.",
+        )
+    return report
+
+
+def get_latest_model_analysis(db: Session, current_user: User, model_id: int) -> AIAnalysisReport:
+    statement = (
+        select(AIAnalysisReport)
+        .where(
+            AIAnalysisReport.user_id == current_user.id,
+            AIAnalysisReport.model_id == model_id,
+            AIAnalysisReport.analysis_type == "model_analysis",
+        )
+        .order_by(AIAnalysisReport.created_at.desc())
+        .limit(1)
+    )
+    report = db.scalar(statement)
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No AI analysis found for this model. Generate one first via POST.",
+        )
+    return report
+
+
 def save_ai_report(
     db: Session,
     current_user: User,

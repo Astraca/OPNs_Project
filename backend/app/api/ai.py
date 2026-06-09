@@ -11,6 +11,8 @@ from app.services import ai_analysis_service
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 
+# ── Dataset analysis ──────────────────────────────────────────────────────────
+
 @router.post("/dataset-analysis/{dataset_id}", response_model=AIAnalysisReportResponse)
 def generate_dataset_analysis(
     dataset_id: int,
@@ -20,6 +22,17 @@ def generate_dataset_analysis(
     return ai_analysis_service.generate_dataset_analysis(db, current_user, dataset_id)
 
 
+@router.get("/dataset-analysis/{dataset_id}", response_model=AIAnalysisReportResponse)
+def get_dataset_analysis(
+    dataset_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return ai_analysis_service.get_latest_dataset_analysis(db, current_user, dataset_id)
+
+
+# ── Model analysis ────────────────────────────────────────────────────────────
+
 @router.post("/model-analysis/{model_id}", response_model=AIAnalysisReportResponse)
 def generate_model_analysis(
     model_id: int,
@@ -28,6 +41,17 @@ def generate_model_analysis(
 ):
     return ai_analysis_service.generate_model_analysis(db, current_user, model_id)
 
+
+@router.get("/model-analysis/{model_id}", response_model=AIAnalysisReportResponse)
+def get_model_analysis(
+    model_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return ai_analysis_service.get_latest_model_analysis(db, current_user, model_id)
+
+
+# ── Prediction explanation ────────────────────────────────────────────────────
 
 @router.post("/prediction-explanation/{prediction_job_id}", response_model=AIAnalysisReportResponse)
 def generate_prediction_explanation(

@@ -17,6 +17,7 @@ import AIReportPanel from "../ai/AIReportPanel";
 import ConfusionMatrixHeatmap from "../../components/Charts/ConfusionMatrixHeatmap";
 import ModelMetricsBarChart from "../../components/Charts/ModelMetricsBarChart";
 import PredictedVsActualChart from "../../components/Charts/PredictedVsActualChart";
+import RegressionMetricsBarChart from "../../components/Charts/RegressionMetricsBarChart";
 import ResidualsChart from "../../components/Charts/ResidualsChart";
 import RocCurveChart from "../../components/Charts/RocCurveChart";
 import type { AIAnalysisReport } from "../../types/ai";
@@ -183,17 +184,23 @@ export default function ModelEvaluationPage() {
 
       {/* Regression metrics */}
       {isRegression && regressionMetric && (
-        <section className="model-section">
-          <Typography.Title level={4}>回归指标</Typography.Title>
-          <Descriptions bordered size="small" column={4}>
-            <Descriptions.Item label="MAE">{regressionMetric.mae.toFixed(4)}</Descriptions.Item>
-            <Descriptions.Item label="RMSE">{regressionMetric.rmse.toFixed(4)}</Descriptions.Item>
-            <Descriptions.Item label="R²">{regressionMetric.r2.toFixed(4)}</Descriptions.Item>
-            <Descriptions.Item label="MAPE">
-              {regressionMetric.mape != null ? `${regressionMetric.mape.toFixed(2)}%` : "-"}
-            </Descriptions.Item>
-          </Descriptions>
-        </section>
+        <>
+          <section className="model-section">
+            <Typography.Title level={4}>回归指标</Typography.Title>
+            <Descriptions bordered size="small" column={4}>
+              <Descriptions.Item label="MAE">{regressionMetric.mae.toFixed(4)}</Descriptions.Item>
+              <Descriptions.Item label="RMSE">{regressionMetric.rmse.toFixed(4)}</Descriptions.Item>
+              <Descriptions.Item label="R²">{regressionMetric.r2.toFixed(4)}</Descriptions.Item>
+              <Descriptions.Item label="MAPE">
+                {regressionMetric.mape != null ? `${regressionMetric.mape.toFixed(2)}%` : "-"}
+              </Descriptions.Item>
+            </Descriptions>
+          </section>
+          <section className="model-section">
+            <Typography.Title level={4}>指标对比</Typography.Title>
+            <RegressionMetricsBarChart metrics={regressionMetric} />
+          </section>
+        </>
       )}
 
       {/* Classification charts */}
