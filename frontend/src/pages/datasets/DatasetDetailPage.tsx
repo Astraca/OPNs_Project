@@ -130,11 +130,20 @@ export default function DatasetDetailPage() {
   }, [datasetId, loadDataset]);
 
   const roleCounts = useMemo(() => {
+    const totalRows = dataset?.sample_count ?? 1;
     const feature = columns.filter((c) => c.role === "feature").length;
     const target = columns.filter((c) => c.role === "target").length;
     const ignored = columns.filter((c) => c.role === "ignored").length;
-    return { feature, target, ignored };
-  }, [columns]);
+    // Usable features: role=feature AND not constant AND not all-missing
+    const usable = columns.filter(
+      (c) =>
+        c.role === "feature" &&
+        c.unique_count > 1 &&
+        c.missing_count < totalRows,
+    ).length;
+    const lowQuality = feature - usable;
+    return { feature, target, ignored, usable, lowQuality };
+  }, [columns, dataset?.sample_count]);
 
   const columnDefinitions: ColumnsType<DatasetColumn> = useMemo(
     () => [
@@ -412,9 +421,14 @@ export default function DatasetDetailPage() {
               </Typography.Title>
               <Typography.Text type="secondary">
                 共 {columns.length} 个字段{" · "}
-                特征 {roleCounts.feature}{" · "}
+                可用特征 {roleCounts.usable}{" · "}
                 目标 {roleCounts.target}{" · "}
                 忽略 {roleCounts.ignored}
+                {roleCounts.lowQuality > 0 && (
+                  <Typography.Text type="warning">
+                    {" · "}低质量 {roleCounts.lowQuality}（常量/全缺失，已自动忽略）
+                  </Typography.Text>
+                )}
               </Typography.Text>
             </div>
             <Space wrap>
