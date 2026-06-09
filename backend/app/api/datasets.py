@@ -5,11 +5,15 @@ from app.database import get_db
 from app.db_models.user import User
 from app.dependencies import get_current_user
 from app.schemas.dataset_schema import (
+    CorrelationMatrixResponse,
     DatasetColumnResponse,
     DatasetCreateRequest,
     DatasetPreviewResponse,
     DatasetProfileResponse,
     DatasetResponse,
+    LabelDistributionResponse,
+    MissingValuesChartResponse,
+    NumericStatisticsResponse,
 )
 from app.services import dataset_service
 
@@ -87,3 +91,39 @@ def get_dataset_profile(
     current_user: User = Depends(get_current_user),
 ):
     return dataset_service.get_profile(db, current_user, dataset_id)
+
+
+@router.get("/{dataset_id}/charts/missing-values", response_model=MissingValuesChartResponse)
+def get_missing_values_chart(
+    dataset_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return dataset_service.get_missing_values_chart(db, current_user, dataset_id)
+
+
+@router.get("/{dataset_id}/charts/label-distribution", response_model=LabelDistributionResponse)
+def get_label_distribution_chart(
+    dataset_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return dataset_service.get_label_distribution_chart(db, current_user, dataset_id)
+
+
+@router.get("/{dataset_id}/charts/numeric-statistics", response_model=NumericStatisticsResponse)
+def get_numeric_statistics_chart(
+    dataset_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return dataset_service.get_numeric_statistics_chart(db, current_user, dataset_id)
+
+
+@router.get("/{dataset_id}/charts/correlation", response_model=CorrelationMatrixResponse)
+def get_correlation_matrix_chart(
+    dataset_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return dataset_service.get_correlation_matrix_chart(db, current_user, dataset_id)

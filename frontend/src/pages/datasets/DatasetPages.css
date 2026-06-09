@@ -21,3 +21,11 @@
 .dataset-upload {
   max-width: 720px;
 }
+
+.dataset-chart-section {
+  margin-top: 20px;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}

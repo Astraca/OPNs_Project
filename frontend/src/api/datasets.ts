@@ -5,6 +5,10 @@ import type {
   DatasetCreatePayload,
   DatasetPreview,
   DatasetProfile,
+  CorrelationMatrixData,
+  LabelDistributionData,
+  MissingValuesChartData,
+  NumericStatisticsData,
 } from "../types/dataset";
 
 
@@ -48,5 +52,25 @@ export async function getDatasetColumns(id: number) {
 
 export async function getDatasetProfile(id: number) {
   const { data } = await request.get<DatasetProfile>(`/datasets/${id}/profile`);
+  return data;
+}
+
+export async function getMissingValuesChart(id: number) {
+  const { data } = await request.get<MissingValuesChartData>(`/datasets/${id}/charts/missing-values`);
+  return data;
+}
+
+export async function getLabelDistributionChart(id: number) {
+  const { data } = await request.get<LabelDistributionData>(`/datasets/${id}/charts/label-distribution`);
+  return data;
+}
+
+export async function getNumericStatisticsChart(id: number) {
+  const { data } = await request.get<NumericStatisticsData>(`/datasets/${id}/charts/numeric-statistics`);
+  return data;
+}
+
+export async function getCorrelationMatrixChart(id: number) {
+  const { data } = await request.get<CorrelationMatrixData>(`/datasets/${id}/charts/correlation`);
   return data;
 }

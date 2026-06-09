@@ -57,3 +57,36 @@ class DatasetProfileResponse(BaseModel):
     columns: list[DatasetColumnResponse]
     missing_values: dict[str, int]
     target_distribution: dict[str, dict[str, int]]
+
+
+class MissingValueItem(BaseModel):
+    column_name: str
+    missing_count: int
+    missing_rate: float
+
+
+class MissingValuesChartResponse(BaseModel):
+    total_rows: int
+    items: list[MissingValueItem]
+
+
+class LabelDistributionResponse(BaseModel):
+    distributions: dict[str, dict[str, int]]
+
+
+class NumericStatisticsItem(BaseModel):
+    column_name: str
+    mean: float | None
+    std: float | None
+    min_value: float | None
+    max_value: float | None
+    missing_count: int
+
+
+class NumericStatisticsResponse(BaseModel):
+    items: list[NumericStatisticsItem]
+
+
+class CorrelationMatrixResponse(BaseModel):
+    columns: list[str]
+    matrix: list[list[float | None]]

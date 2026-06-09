@@ -8,6 +8,7 @@ import DatasetCreatePage from "../pages/datasets/DatasetCreatePage";
 import DatasetDetailPage from "../pages/datasets/DatasetDetailPage";
 import DatasetListPage from "../pages/datasets/DatasetListPage";
 import DatasetPreviewPage from "../pages/datasets/DatasetPreviewPage";
+import DatasetProfilePage from "../pages/datasets/DatasetProfilePage";
 import PlaceholderPage from "../pages/PlaceholderPage";
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
           { path: "datasets/create", element: <DatasetCreatePage /> },
           { path: "datasets/:id", element: <DatasetDetailPage /> },
           { path: "datasets/:id/preview", element: <DatasetPreviewPage /> },
+          { path: "datasets/:id/profile", element: <DatasetProfilePage /> },
           { path: "models", element: <PlaceholderPage title="模型训练" /> },
           { path: "reports", element: <PlaceholderPage title="分析报告" /> },
         ],

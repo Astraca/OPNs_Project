@@ -1,4 +1,4 @@
-import { InboxOutlined, TableOutlined } from "@ant-design/icons";
+import { BarChartOutlined, InboxOutlined, TableOutlined } from "@ant-design/icons";
 import { Button, Descriptions, Space, Table, Typography, Upload, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { UploadProps } from "antd";
@@ -77,6 +77,9 @@ export default function DatasetDetailPage() {
         <Space>
           <Button icon={<TableOutlined />} disabled={!dataset?.file_path} onClick={() => navigate("preview")}>
             预览数据
+          </Button>
+          <Button icon={<BarChartOutlined />} disabled={!dataset?.file_path} onClick={() => navigate("profile")}>
+            数据分析
           </Button>
         </Space>
       </div>

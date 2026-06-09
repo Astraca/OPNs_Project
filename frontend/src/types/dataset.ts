@@ -47,3 +47,36 @@ export type DatasetProfile = {
   missing_values: Record<string, number>;
   target_distribution: Record<string, Record<string, number>>;
 };
+
+export type MissingValueItem = {
+  column_name: string;
+  missing_count: number;
+  missing_rate: number;
+};
+
+export type MissingValuesChartData = {
+  total_rows: number;
+  items: MissingValueItem[];
+};
+
+export type LabelDistributionData = {
+  distributions: Record<string, Record<string, number>>;
+};
+
+export type NumericStatisticsItem = {
+  column_name: string;
+  mean: number | null;
+  std: number | null;
+  min_value: number | null;
+  max_value: number | null;
+  missing_count: number;
+};
+
+export type NumericStatisticsData = {
+  items: NumericStatisticsItem[];
+};
+
+export type CorrelationMatrixData = {
+  columns: string[];
+  matrix: (number | null)[][];
+};

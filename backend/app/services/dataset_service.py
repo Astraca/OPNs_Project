@@ -114,6 +114,68 @@ def get_profile(db: Session, current_user: User, dataset_id: int) -> dict[str, A
     }
 
 
+def get_missing_values_chart(db: Session, current_user: User, dataset_id: int) -> dict[str, Any]:
+    dataset = get_dataset(db, current_user, dataset_id)
+    columns = get_dataset_columns(db, current_user, dataset_id)
+    total_rows = dataset.sample_count or 0
+    return {
+        "total_rows": total_rows,
+        "items": [
+            {
+                "column_name": column.column_name,
+                "missing_count": column.missing_count,
+                "missing_rate": (column.missing_count / total_rows) if total_rows else 0,
+            }
+            for column in columns
+        ],
+    }
+
+
+def get_label_distribution_chart(db: Session, current_user: User, dataset_id: int) -> dict[str, Any]:
+    dataset = get_dataset(db, current_user, dataset_id)
+    dataframe = read_dataset_file(dataset)
+    distributions: dict[str, dict[str, int]] = {}
+    target_columns = dataset.target_columns or [column for column in dataframe.columns if column in IGAN_TARGET_COLUMNS]
+    for target in target_columns:
+        if target in dataframe.columns:
+            counts = dataframe[target].astype(str).value_counts(dropna=False).to_dict()
+            distributions[target] = {str(key): int(value) for key, value in counts.items()}
+    return {"distributions": distributions}
+
+
+def get_numeric_statistics_chart(db: Session, current_user: User, dataset_id: int) -> dict[str, Any]:
+    columns = get_dataset_columns(db, current_user, dataset_id)
+    return {
+        "items": [
+            {
+                "column_name": column.column_name,
+                "mean": column.mean,
+                "std": column.std,
+                "min_value": column.min_value,
+                "max_value": column.max_value,
+                "missing_count": column.missing_count,
+            }
+            for column in columns
+            if column.mean is not None
+        ]
+    }
+
+
+def get_correlation_matrix_chart(db: Session, current_user: User, dataset_id: int) -> dict[str, Any]:
+    dataset = get_dataset(db, current_user, dataset_id)
+    dataframe = read_dataset_file(dataset)
+    numeric_dataframe = dataframe.apply(pd.to_numeric, errors="coerce").dropna(axis=1, how="all")
+    if numeric_dataframe.empty:
+        return {"columns": [], "matrix": []}
+
+    correlation = numeric_dataframe.corr()
+    columns = [str(column) for column in correlation.columns]
+    matrix: list[list[float | None]] = []
+    for row in correlation.to_numpy().tolist():
+        matrix.append([None if pd.isna(value) else round(float(value), 4) for value in row])
+    return {"columns": columns, "matrix": matrix}
+
+
 def read_dataset_file(dataset: Dataset) -> pd.DataFrame:
     if dataset.file_path is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Dataset file has not been uploaded")
