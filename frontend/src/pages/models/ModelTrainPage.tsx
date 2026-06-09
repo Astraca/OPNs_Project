@@ -278,7 +278,7 @@ export default function ModelTrainPage() {
           <TestSizeInput />
         </Form.Item>
 
-        <Form.Item label="随机种子" style={{ marginBottom: 0 }}>
+        <Form.Item label="随机种子">
           <Space.Compact>
             <Form.Item name="random_state" rules={[{ required: true }]} initialValue={42} noStyle>
               <InputNumber min={0} max={999999} style={{ width: 120 }} />
