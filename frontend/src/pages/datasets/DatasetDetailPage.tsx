@@ -38,20 +38,27 @@ import "./DatasetPages.css";
 
 const { Dragger } = Upload;
 
-const DATA_TYPE_COLORS: Record<string, string> = {
-  int64: "cyan",
-  float64: "geekblue",
-  object: "purple",
-  bool: "orange",
-  datetime64: "magenta",
-};
+function getDtypeColor(dtype: string): string {
+  if (!dtype) return "default";
+  const lower = dtype.toLowerCase();
+  if (lower.startsWith("int")) return "cyan";
+  if (lower.startsWith("float")) return "geekblue";
+  if (lower === "object" || lower === "string" || lower.startsWith("str")) return "purple";
+  if (lower.startsWith("bool")) return "orange";
+  if (lower.startsWith("datetime")) return "magenta";
+  if (lower === "null" || lower === "none") return "red";
+  return "default";
+}
 
 function formatDataType(dtype: string): string {
-  if (dtype.startsWith("int")) return "整数";
-  if (dtype.startsWith("float")) return "小数";
-  if (dtype === "object" || dtype === "string" || dtype.startsWith("str")) return "文本";
-  if (dtype.startsWith("bool")) return "布尔";
-  if (dtype.startsWith("datetime")) return "日期";
+  if (!dtype) return "未知";
+  const lower = dtype.toLowerCase();
+  if (lower.startsWith("int")) return "整数";
+  if (lower.startsWith("float")) return "小数";
+  if (lower === "object" || lower === "string" || lower.startsWith("str")) return "文本";
+  if (lower.startsWith("bool")) return "布尔";
+  if (lower.startsWith("datetime")) return "日期";
+  if (lower === "null" || lower === "none") return "NULL";
   return dtype;
 }
 
@@ -182,15 +189,12 @@ export default function DatasetDetailPage() {
         dataIndex: "data_type",
         width: 80,
         align: "center" as const,
-        render: (value: string) => {
-          const colorKey =
-            Object.keys(DATA_TYPE_COLORS).find((k) => value.startsWith(k)) ?? "";
+        render: (value: string, record: DatasetColumn) => {
+          const totalRows = dataset?.sample_count || 1;
+          const isAllMissing = record.missing_count >= totalRows;
           return (
-            <Tag
-              color={DATA_TYPE_COLORS[colorKey] ?? "default"}
-              style={{ margin: 0 }}
-            >
-              {formatDataType(value)}
+            <Tag color={isAllMissing ? "red" : getDtypeColor(value)} style={{ margin: 0 }}>
+              {isAllMissing ? "NULL" : formatDataType(value)}
             </Tag>
           );
         },
@@ -366,7 +370,7 @@ export default function DatasetDetailPage() {
       </div>
 
       {dataset && (
-        <Descriptions bordered column={2} size="small">
+        <Descriptions bordered column={1} size="small" labelStyle={{ width: 100 }}>
           <Descriptions.Item label="任务类型">
             {dataset.task_type === "multi_output_classification"
               ? "多标签分类"
@@ -383,12 +387,12 @@ export default function DatasetDetailPage() {
           <Descriptions.Item label="字段数">
             {dataset.feature_count}
           </Descriptions.Item>
-          <Descriptions.Item label="目标字段" span={2}>
+          <Descriptions.Item label="目标字段">
             {dataset.target_columns.length
               ? dataset.target_columns.map(displayFieldName).join(", ")
               : "暂未识别"}
           </Descriptions.Item>
-          <Descriptions.Item label="说明" span={2}>
+          <Descriptions.Item label="说明">
             <div className="dataset-description-cell">
               <Typography.Paragraph style={{ whiteSpace: "pre-line", margin: 0 }}>
                 {dataset.description ?? "-"}
