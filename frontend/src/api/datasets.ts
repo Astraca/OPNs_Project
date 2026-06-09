@@ -29,6 +29,11 @@ export async function getDataset(id: number) {
   return data;
 }
 
+export async function updateDataset(id: number, payload: DatasetCreatePayload) {
+  const { data } = await request.put<Dataset>(`/datasets/${id}`, payload);
+  return data;
+}
+
 export async function deleteDataset(id: number) {
   await request.delete(`/datasets/${id}`);
 }

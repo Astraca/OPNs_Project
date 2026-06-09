@@ -49,6 +49,16 @@ def get_dataset(
     return dataset_service.get_dataset(db, current_user, dataset_id)
 
 
+@router.put("/{dataset_id}", response_model=DatasetResponse)
+def update_dataset(
+    dataset_id: int,
+    payload: DatasetCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return dataset_service.update_dataset(db, current_user, dataset_id, payload)
+
+
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_dataset(
     dataset_id: int,

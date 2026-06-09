@@ -77,6 +77,33 @@ def update_dataset_column_roles(
     return get_dataset_columns(db, current_user, dataset.id)
 
 
+def update_dataset(db: Session, current_user: User, dataset_id: int, payload: DatasetCreateRequest) -> Dataset:
+    dataset = get_dataset(db, current_user, dataset_id)
+
+    # Check for duplicate name under same user + new task type
+    if payload.name != dataset.name or payload.task_type != dataset.task_type:
+        existing = db.scalar(
+            select(Dataset).where(
+                Dataset.user_id == current_user.id,
+                Dataset.task_type == payload.task_type,
+                Dataset.name == payload.name,
+                Dataset.id != dataset_id,
+            ),
+        )
+        if existing is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"数据集名称 '{payload.name}' 在当前任务类型下已存在",
+            )
+
+    dataset.name = payload.name
+    dataset.task_type = payload.task_type
+    dataset.description = payload.description
+    db.commit()
+    db.refresh(dataset)
+    return dataset
+
+
 def get_dataset(db: Session, current_user: User, dataset_id: int) -> Dataset:
     dataset = db.get(Dataset, dataset_id)
     if dataset is None or dataset.user_id != current_user.id:

@@ -1,5 +1,6 @@
 import {
   BarChartOutlined,
+  EditOutlined,
   InboxOutlined,
   SwapOutlined,
   TableOutlined,
@@ -10,10 +11,13 @@ import {
   Alert,
   Button,
   Descriptions,
+  Form,
+  Input,
   Modal,
   Progress,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Tooltip,
@@ -28,10 +32,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   getDataset,
   getDatasetColumns,
+  updateDataset,
   updateDatasetColumnRoles,
   uploadDatasetFile,
 } from "../../api/datasets";
-import type { Dataset, DatasetColumn, DatasetColumnRole } from "../../types/dataset";
+import type { Dataset, DatasetColumn, DatasetColumnRole, DatasetCreatePayload } from "../../types/dataset";
 import { displayFieldName } from "../../utils/fieldNames";
 import "./DatasetPages.css";
 
@@ -74,6 +79,10 @@ export default function DatasetDetailPage() {
   const [loading, setLoading] = useState(false);
   const [savingRoles, setSavingRoles] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm] = Form.useForm<DatasetCreatePayload>();
+  const [showIgnored, setShowIgnored] = useState(false);
 
   const loadDataset = useCallback(async () => {
     setLoading(true);
@@ -142,6 +151,39 @@ export default function DatasetDetailPage() {
       void loadDataset();
     }
   }, [datasetId, loadDataset]);
+
+  const visibleColumns = useMemo(
+    () => (showIgnored ? columns : columns.filter((c) => c.role !== "ignored")),
+    [columns, showIgnored],
+  );
+
+  async function handleEdit(values: DatasetCreatePayload) {
+    setEditing(true);
+    try {
+      const updated = await updateDataset(datasetId, values);
+      setDataset(updated);
+      setEditOpen(false);
+      message.success("数据集信息已更新");
+    } catch (err: unknown) {
+      const detail =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      message.error(typeof detail === "string" ? detail : "更新失败");
+    } finally {
+      setEditing(false);
+    }
+  }
+
+  function openEditDialog() {
+    if (!dataset) return;
+    editForm.setFieldsValue({
+      name: dataset.name,
+      task_type: dataset.task_type,
+      description: dataset.description ?? "",
+    });
+    setEditOpen(true);
+  }
 
   const roleCounts = useMemo(() => {
     const totalRows = dataset?.sample_count ?? 1;
@@ -350,6 +392,9 @@ export default function DatasetDetailPage() {
           {dataset?.name ?? "数据集详情"}
         </Typography.Title>
         <Space>
+          <Button icon={<EditOutlined />} onClick={openEditDialog}>
+            编辑信息
+          </Button>
           {dataset?.file_path && (
             <Button icon={<SwapOutlined />} onClick={() => setShowUpload(true)}>
               更新数据集
@@ -373,7 +418,7 @@ export default function DatasetDetailPage() {
       </div>
 
       {dataset && (
-        <Descriptions bordered column={1} size="small" labelStyle={{ width: 100 }}>
+        <Descriptions bordered column={2} size="small" labelStyle={{ width: 120, flexShrink: 0 }}>
           <Descriptions.Item label="任务类型">
             {dataset.task_type === "multi_output_classification"
               ? "多标签分类"
@@ -390,12 +435,12 @@ export default function DatasetDetailPage() {
           <Descriptions.Item label="字段数">
             {dataset.feature_count}
           </Descriptions.Item>
-          <Descriptions.Item label="目标字段">
+          <Descriptions.Item label="目标字段" span={2}>
             {dataset.target_columns.length
               ? dataset.target_columns.map(displayFieldName).join(", ")
               : "暂未识别"}
           </Descriptions.Item>
-          <Descriptions.Item label="说明">
+          <Descriptions.Item label="说明" span={2}>
             <div className="dataset-description-cell">
               <Typography.Paragraph style={{ whiteSpace: "pre-line", margin: 0 }}>
                 {dataset.description ?? "-"}
@@ -481,6 +526,12 @@ export default function DatasetDetailPage() {
               <Tag color="blue">特征</Tag>
               <Tag color="green">目标</Tag>
               <Tag color="orange">忽略</Tag>
+              <Switch
+                checked={showIgnored}
+                onChange={setShowIgnored}
+                checkedChildren="显示忽略"
+                unCheckedChildren="隐藏忽略"
+              />
               <Button
                 type="primary"
                 onClick={handleSaveRoles}
@@ -494,7 +545,7 @@ export default function DatasetDetailPage() {
             <Table<DatasetColumn>
               rowKey="id"
               columns={columnDefinitions}
-              dataSource={columns}
+              dataSource={visibleColumns}
               loading={loading}
               pagination={false}
               scroll={{ x: 1130, y: 520 }}
@@ -508,6 +559,33 @@ export default function DatasetDetailPage() {
           </div>
         </section>
       )}
+
+      {/* Edit dataset info modal */}
+      <Modal
+        title="编辑数据集信息"
+        open={editOpen}
+        onCancel={() => setEditOpen(false)}
+        onOk={() => editForm.submit()}
+        confirmLoading={editing}
+      >
+        <Form form={editForm} layout="vertical" onFinish={handleEdit}>
+          <Form.Item name="name" label="数据集名称" rules={[{ required: true }]}>
+            <Input maxLength={128} />
+          </Form.Item>
+          <Form.Item name="task_type" label="任务类型" rules={[{ required: true }]}>
+            <Select
+              options={[
+                { label: "多标签分类（如 IgAN M/E/S/T/C）", value: "multi_output_classification" },
+                { label: "单标签分类（如患病/健康）", value: "classification" },
+                { label: "回归预测（如 eGFR、血压值）", value: "regression" },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="description" label="说明">
+            <Input.TextArea rows={4} maxLength={2000} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </main>
   );
 }
