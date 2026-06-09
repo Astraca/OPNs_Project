@@ -4,9 +4,9 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-ClassificationAlgorithm = Literal["SVM", "OPNs-SVM"]
-RegressionAlgorithm = Literal["SVR", "OPNs-SVR"]
-Algorithm = Literal["SVM", "OPNs-SVM", "SVR", "OPNs-SVR"]
+ClassificationAlgorithm = Literal["SVM", "OPNs-SVM", "RandomForest", "LogisticRegression"]
+RegressionAlgorithm = Literal["SVR", "OPNs-SVR", "RandomForest", "Ridge"]
+Algorithm = Literal["SVM", "OPNs-SVM", "SVR", "OPNs-SVR", "RandomForest", "LogisticRegression", "Ridge"]
 PairingMethod = Literal["adjacent", "random", "correlation_greedy"]
 
 

@@ -3,29 +3,17 @@ from datetime import datetime
 from pathlib import Path
 
 import joblib
-import numpy as np
 import pandas as pd
 from fastapi import HTTPException, status
-from sklearn.impute import SimpleImputer
-from sklearn.metrics import (
-    accuracy_score,
-    f1_score,
-    mean_absolute_error,
-    mean_squared_error,
-    precision_score,
-    r2_score,
-    recall_score,
-)
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC, SVR
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.db_models.ml_model import MLModel, ModelMetric, TrainingRun
 from app.db_models.user import User
 from app.ml.opns_transformer import OPNsTransformer
+from app.ml.trainer import build_pipeline, compute_classification_metrics, compute_regression_metrics
 from app.schemas.model_schema import ModelTrainRequest, RegressionTrainRequest
 from app.services.dataset_service import get_dataset, get_dataset_columns, read_dataset_file
 from app.utils.igan_fields import get_default_feature_columns, get_mestc_target_columns
@@ -117,24 +105,15 @@ def train_classification_model(db: Session, current_user: User, payload: ModelTr
         classifiers: dict[str, Pipeline] = {}
         metrics: list[ModelMetric] = []
         for target in target_columns:
-            classifier = Pipeline(
-                steps=[
-                    ("imputer", SimpleImputer(strategy="median")),
-                    ("scaler", StandardScaler()),
-                    ("svc", SVC(kernel="rbf", probability=True, random_state=payload.random_state)),
-                ]
-            )
+            classifier = build_pipeline(payload.algorithm, payload.random_state, "classification")
             classifier.fit(X_train_model, y_train[target])
             predictions = classifier.predict(X_test_model)
             classifiers[target] = classifier
-            metrics.extend(
-                [
-                    ModelMetric(model_id=model.id, target_name=target, metric_name="accuracy", metric_value=float(accuracy_score(y_test[target], predictions))),
-                    ModelMetric(model_id=model.id, target_name=target, metric_name="precision", metric_value=float(precision_score(y_test[target], predictions, average="weighted", zero_division=0))),
-                    ModelMetric(model_id=model.id, target_name=target, metric_name="recall", metric_value=float(recall_score(y_test[target], predictions, average="weighted", zero_division=0))),
-                    ModelMetric(model_id=model.id, target_name=target, metric_name="f1", metric_value=float(f1_score(y_test[target], predictions, average="weighted", zero_division=0))),
-                ]
-            )
+            cls_metrics = compute_classification_metrics(y_test[target], predictions)
+            for metric_name, metric_value in cls_metrics.items():
+                metrics.append(
+                    ModelMetric(model_id=model.id, target_name=target, metric_name=metric_name, metric_value=metric_value),
+                )
             joblib.dump(classifier, model_dir / f"{target}_classifier.pkl")
 
         if transformer is not None:
@@ -300,32 +279,17 @@ def train_regression_model(db: Session, current_user: User, payload: RegressionT
             X_train_model = X_train
             X_test_model = X_test
 
-        regressor = Pipeline(
-            steps=[
-                ("imputer", SimpleImputer(strategy="median")),
-                ("scaler", StandardScaler()),
-                ("svr", SVR(kernel="rbf")),
-            ]
-        )
+        regressor = build_pipeline(payload.algorithm, payload.random_state, "regression")
         regressor.fit(X_train_model, y_train)
         predictions = regressor.predict(X_test_model)
 
-        mae = float(mean_absolute_error(y_test, predictions))
-        rmse = float(np.sqrt(mean_squared_error(y_test, predictions)))
-        r2 = float(r2_score(y_test, predictions))
-        mape = float(
-            np.mean(np.abs((y_test - predictions) / np.where(y_test != 0, y_test, np.nan))) * 100
-        ) if (y_test != 0).any() else None
-
-        metrics = [
-            ModelMetric(model_id=model.id, target_name=target_column, metric_name="mae", metric_value=mae),
-            ModelMetric(model_id=model.id, target_name=target_column, metric_name="rmse", metric_value=rmse),
-            ModelMetric(model_id=model.id, target_name=target_column, metric_name="r2", metric_value=r2),
-        ]
-        if mape is not None:
-            metrics.append(
-                ModelMetric(model_id=model.id, target_name=target_column, metric_name="mape", metric_value=mape),
-            )
+        reg_metrics = compute_regression_metrics(y_test, predictions)
+        metrics = []
+        for metric_name, metric_value in reg_metrics.items():
+            if metric_value is not None:
+                metrics.append(
+                    ModelMetric(model_id=model.id, target_name=target_column, metric_name=metric_name, metric_value=metric_value),
+                )
 
         joblib.dump(regressor, model_dir / "regressor.pkl")
         if transformer is not None:

@@ -146,6 +146,8 @@ export default function ModelTrainPage() {
                 options={[
                   { label: "OPNs-SVM", value: "OPNs-SVM" },
                   { label: "标准 SVM", value: "SVM" },
+                  { label: "随机森林 (分类)", value: "RandomForest" },
+                  { label: "逻辑回归", value: "LogisticRegression" },
                 ]}
                 onChange={(value) => setSelectedAlgorithm(value)}
               />
@@ -175,6 +177,8 @@ export default function ModelTrainPage() {
                 options={[
                   { label: "OPNs-SVR", value: "OPNs-SVR" },
                   { label: "标准 SVR", value: "SVR" },
+                  { label: "随机森林 (回归)", value: "RandomForest" },
+                  { label: "岭回归 (Ridge)", value: "Ridge" },
                 ]}
                 onChange={(value) => setSelectedAlgorithm(value)}
               />

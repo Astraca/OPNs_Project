@@ -1,4 +1,8 @@
-export type ModelAlgorithm = "SVM" | "OPNs-SVM" | "SVR" | "OPNs-SVR";
+export type ModelAlgorithm =
+  | "SVM" | "OPNs-SVM"
+  | "SVR" | "OPNs-SVR"
+  | "RandomForest" | "LogisticRegression"
+  | "Ridge";
 export type PairingMethod = "adjacent" | "random" | "correlation_greedy";
 
 export type MLModel = {

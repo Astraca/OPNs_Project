@@ -2,7 +2,9 @@
 
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression, Ridge as RidgeRegression
 from sklearn.metrics import (
     accuracy_score,
     f1_score,
@@ -59,6 +61,62 @@ def build_svr_pipeline() -> Pipeline:
         ("scaler", StandardScaler()),
         ("svr", SVR(kernel="rbf")),
     ])
+
+
+def build_rf_classifier_pipeline(random_state: int = 42) -> Pipeline:
+    return Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler()),
+        ("rf", RandomForestClassifier(n_estimators=100, random_state=random_state)),
+    ])
+
+
+def build_rf_regressor_pipeline(random_state: int = 42) -> Pipeline:
+    return Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler()),
+        ("rf", RandomForestRegressor(n_estimators=100, random_state=random_state)),
+    ])
+
+
+def build_logistic_regression_pipeline(random_state: int = 42) -> Pipeline:
+    return Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler()),
+        ("lr", LogisticRegression(max_iter=1000, random_state=random_state)),
+    ])
+
+
+def build_ridge_pipeline() -> Pipeline:
+    return Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler()),
+        ("ridge", RidgeRegression()),
+    ])
+
+
+def build_pipeline(algorithm: str, random_state: int = 42, task_type: str = "classification") -> Pipeline:
+    """Build the appropriate sklearn pipeline for the given algorithm."""
+    if algorithm == "RandomForest":
+        if task_type == "regression":
+            return build_rf_regressor_pipeline(random_state)
+        return build_rf_classifier_pipeline(random_state)
+
+    pipelines = {
+        "SVM": build_svc_pipeline,
+        "OPNs-SVM": build_svc_pipeline,
+        "SVR": build_svr_pipeline,
+        "OPNs-SVR": build_svr_pipeline,
+        "LogisticRegression": build_logistic_regression_pipeline,
+        "Ridge": build_ridge_pipeline,
+    }
+    builder = pipelines.get(algorithm)
+    if builder is None:
+        raise ValueError(f"Unknown algorithm: {algorithm}")
+    kwargs = {}
+    if "random_state" in builder.__code__.co_varnames:
+        kwargs["random_state"] = random_state
+    return builder(**kwargs)
 
 
 def compute_classification_metrics(
