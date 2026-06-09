@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 
 import { deleteModel, listModels } from "../../api/models";
 import type { MLModel } from "../../types/model";
-import { displayFieldName } from "../../utils/fieldNames";
+import { displayFieldName, displayPairingMethod } from "../../utils/fieldNames";
 import "./ModelPages.css";
 
 
@@ -57,6 +57,11 @@ export default function ModelListPage() {
       },
     },
     { title: "算法", dataIndex: "algorithm", render: (value: string) => <Tag color="blue">{value}</Tag> },
+    {
+      title: "配对方式",
+      dataIndex: "pairing_method",
+      render: (value: string | null) => displayPairingMethod(value),
+    },
     {
       title: "目标字段",
       dataIndex: "target_columns",
