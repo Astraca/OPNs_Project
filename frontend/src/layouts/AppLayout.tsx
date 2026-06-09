@@ -1,7 +1,14 @@
-import { BarChartOutlined, DatabaseOutlined, ExperimentOutlined, HomeOutlined } from "@ant-design/icons";
-import { Layout, Menu, Typography } from "antd";
+import {
+  BarChartOutlined,
+  DatabaseOutlined,
+  ExperimentOutlined,
+  HomeOutlined,
+  LogoutOutlined,
+} from "@ant-design/icons";
+import { Button, Layout, Menu, Space, Typography } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import { useAuthStore } from "../store/authStore";
 import "./AppLayout.css";
 
 
@@ -17,6 +24,13 @@ const menuItems = [
 export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const clearSession = useAuthStore((state) => state.clearSession);
+
+  function handleLogout() {
+    clearSession();
+    navigate("/login", { replace: true });
+  }
 
   return (
     <Layout className="app-shell">
@@ -35,6 +49,12 @@ export default function AppLayout() {
       <Layout>
         <Header className="app-header">
           <Typography.Title level={4}>基于 OPNs-SVM/SVR 的 IgAN 病理标签预测</Typography.Title>
+          <Space>
+            <Typography.Text type="secondary">{user?.username}</Typography.Text>
+            <Button icon={<LogoutOutlined />} onClick={handleLogout}>
+              退出
+            </Button>
+          </Space>
         </Header>
         <Content className="app-content">
           <Outlet />
