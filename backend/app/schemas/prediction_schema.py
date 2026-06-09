@@ -27,6 +27,19 @@ class SinglePredictionResponse(BaseModel):
     disclaimer: str = RESEARCH_DISCLAIMER
 
 
+class RegressionSingleRequest(BaseModel):
+    model_id: int
+    input_data: dict[str, Any]
+
+
+class RegressionSinglePredictionResponse(BaseModel):
+    job_id: int
+    task: str = "regression"
+    target: str
+    predicted_value: float
+    disclaimer: str = RESEARCH_DISCLAIMER
+
+
 class BatchPredictionResponse(BaseModel):
     job_id: int
     rows: list[dict[str, Any]]

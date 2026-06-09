@@ -3,21 +3,30 @@ from datetime import datetime
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pandas as pd
 from fastapi import HTTPException, status
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    mean_absolute_error,
+    mean_squared_error,
+    precision_score,
+    r2_score,
+    recall_score,
+)
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
+from sklearn.svm import SVC, SVR
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.db_models.ml_model import MLModel, ModelMetric, TrainingRun
 from app.db_models.user import User
 from app.ml.opns_transformer import OPNsTransformer
-from app.schemas.model_schema import ModelTrainRequest
+from app.schemas.model_schema import ModelTrainRequest, RegressionTrainRequest
 from app.services.dataset_service import get_dataset, get_dataset_columns, read_dataset_file
 from app.utils.igan_fields import get_default_feature_columns, get_mestc_target_columns
 
@@ -171,7 +180,165 @@ def get_model(db: Session, current_user: User, model_id: int) -> MLModel:
     return model
 
 
+def delete_model(db: Session, current_user: User, model_id: int) -> None:
+    model = get_model(db, current_user, model_id)
+    db.execute(delete(ModelMetric).where(ModelMetric.model_id == model.id))
+    db.execute(delete(TrainingRun).where(TrainingRun.model_id == model.id))
+    db.delete(model)
+    db.commit()
+
+
 def get_model_metrics(db: Session, current_user: User, model_id: int) -> list[ModelMetric]:
     model = get_model(db, current_user, model_id)
     statement = select(ModelMetric).where(ModelMetric.model_id == model.id)
     return list(db.scalars(statement).all())
+
+
+def train_regression_model(db: Session, current_user: User, payload: RegressionTrainRequest) -> MLModel:
+    dataset = get_dataset(db, current_user, payload.dataset_id)
+    dataframe = read_dataset_file(dataset)
+
+    target_column = payload.target_column
+    if target_column not in dataframe.columns:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Target column '{target_column}' not found in dataset",
+        )
+
+    dataset_columns = get_dataset_columns(db, current_user, dataset.id)
+    role_feature_columns = [column.column_name for column in dataset_columns if column.role == "feature"]
+    feature_columns = payload.feature_columns or role_feature_columns or get_default_feature_columns(
+        [str(column) for column in dataframe.columns],
+        [target_column],
+    )
+    numeric_features = dataframe[feature_columns].apply(pd.to_numeric, errors="coerce")
+    usable_features = [column for column in numeric_features.columns if not numeric_features[column].isna().all()]
+    if len(usable_features) < 2 and payload.algorithm == "OPNs-SVR":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OPNs-SVR requires at least two numeric features",
+        )
+    if not usable_features:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No numeric feature columns found")
+
+    X = numeric_features[usable_features]
+    y = pd.to_numeric(dataframe[target_column], errors="coerce")
+    valid_mask = y.notna()
+    X = X.loc[valid_mask]
+    y = y.loc[valid_mask]
+    if len(X) < 4:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Not enough valid samples for regression training",
+        )
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=payload.test_size, random_state=payload.random_state,
+    )
+
+    model = MLModel(
+        user_id=current_user.id,
+        dataset_id=dataset.id,
+        model_name=payload.model_name,
+        task_type="regression",
+        algorithm=payload.algorithm,
+        target_columns=[target_column],
+        feature_columns=usable_features,
+        opns_enabled=payload.algorithm == "OPNs-SVR",
+        pairing_method=payload.pairing_method if payload.algorithm == "OPNs-SVR" else None,
+        mapping_config={},
+        hyperparameters={
+            "test_size": payload.test_size,
+            "random_state": payload.random_state,
+            "kernel": "rbf",
+        },
+    )
+    db.add(model)
+    db.commit()
+    db.refresh(model)
+
+    run = TrainingRun(
+        model_id=model.id,
+        train_size=len(X_train),
+        test_size=len(X_test),
+        random_state=payload.random_state,
+        status="running",
+    )
+    db.add(run)
+    db.commit()
+
+    model_dir = MODEL_STORAGE_DIR / f"model_{model.id:03d}"
+    model_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        transformer = None
+        if payload.algorithm == "OPNs-SVR":
+            transformer = OPNsTransformer(
+                pairing_method=payload.pairing_method,
+                random_state=payload.random_state,
+            )
+            X_train_model = transformer.fit_transform(X_train, y_train)
+            X_test_model = transformer.transform(X_test)
+        else:
+            X_train_model = X_train
+            X_test_model = X_test
+
+        regressor = Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+                ("svr", SVR(kernel="rbf")),
+            ]
+        )
+        regressor.fit(X_train_model, y_train)
+        predictions = regressor.predict(X_test_model)
+
+        mae = float(mean_absolute_error(y_test, predictions))
+        rmse = float(np.sqrt(mean_squared_error(y_test, predictions)))
+        r2 = float(r2_score(y_test, predictions))
+        mape = float(
+            np.mean(np.abs((y_test - predictions) / np.where(y_test != 0, y_test, np.nan))) * 100
+        ) if (y_test != 0).any() else None
+
+        metrics = [
+            ModelMetric(model_id=model.id, target_name=target_column, metric_name="mae", metric_value=mae),
+            ModelMetric(model_id=model.id, target_name=target_column, metric_name="rmse", metric_value=rmse),
+            ModelMetric(model_id=model.id, target_name=target_column, metric_name="r2", metric_value=r2),
+        ]
+        if mape is not None:
+            metrics.append(
+                ModelMetric(model_id=model.id, target_name=target_column, metric_name="mape", metric_value=mape),
+            )
+
+        joblib.dump(regressor, model_dir / "regressor.pkl")
+        if transformer is not None:
+            joblib.dump(transformer, model_dir / "opns_transformer.pkl")
+
+        metadata = {
+            "model_id": model.id,
+            "algorithm": model.algorithm,
+            "task_type": "regression",
+            "target_column": target_column,
+            "feature_columns": usable_features,
+            "opns_enabled": model.opns_enabled,
+            "pairing_method": model.pairing_method,
+            "created_at": datetime.utcnow().isoformat(),
+        }
+        metadata_path = model_dir / "metadata.json"
+        metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        db.execute(delete(ModelMetric).where(ModelMetric.model_id == model.id))
+        db.add_all(metrics)
+        model.model_file_path = str(model_dir)
+        model.metadata_file_path = str(metadata_path)
+        run.status = "completed"
+        run.finished_at = datetime.utcnow()
+        db.commit()
+        db.refresh(model)
+        return model
+    except Exception as exc:
+        run.status = "failed"
+        run.finished_at = datetime.utcnow()
+        run.error_message = str(exc)
+        db.commit()
+        raise

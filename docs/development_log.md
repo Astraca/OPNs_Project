@@ -10,3 +10,6 @@
 - Implemented OPNs-SVM classification training with model persistence and metric evaluation pages.
 - Adjusted IgAN field handling for out-prefixed targets and implemented single/batch prediction workflows.
 - Added dataset column role management and mock AI analysis for datasets, models, and prediction results.
+- Implemented OPNs-SVR regression module: training, evaluation (MAE/RMSE/R²/MAPE), predicted-vs-actual scatter, residuals, single/batch prediction.
+- Added evaluation API with confusion matrix, ROC curves, regression metrics, and chart data endpoints.
+- Added frontend regression prediction pages, evaluation charts (confusion matrix heatmap, ROC, predicted-vs-actual, residuals), and model delete endpoint.

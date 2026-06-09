@@ -6,6 +6,7 @@ import {
   LogoutOutlined,
   ThunderboltOutlined,
 } from "@ant-design/icons";
+import type { MenuProps } from "antd";
 import { Button, Layout, Menu, Space, Typography } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
@@ -15,20 +16,53 @@ import "./AppLayout.css";
 
 const { Header, Sider, Content } = Layout;
 
-const menuItems = [
+type NavItem = {
+  key: string;
+  icon?: React.ReactNode;
+  label: string;
+  children?: NavItem[];
+};
+
+const navItems: NavItem[] = [
   { key: "/dashboard", icon: <HomeOutlined />, label: "系统首页" },
   { key: "/datasets", icon: <DatabaseOutlined />, label: "数据集" },
   { key: "/models", icon: <ExperimentOutlined />, label: "模型训练" },
-  { key: "/prediction/igan/single", icon: <ThunderboltOutlined />, label: "预测" },
+  {
+    key: "prediction-group",
+    icon: <ThunderboltOutlined />,
+    label: "预测",
+    children: [
+      { key: "/prediction/igan/single", label: "IgAN 单病例" },
+      { key: "/prediction/batch", label: "IgAN 批量" },
+      { key: "/prediction/regression/single", label: "回归单样本" },
+      { key: "/prediction/regression/batch", label: "回归批量" },
+      { key: "/prediction/history", label: "预测历史" },
+    ],
+  },
   { key: "/reports", icon: <BarChartOutlined />, label: "分析报告" },
 ];
+
+function collectLeafKeys(items: NavItem[]): string[] {
+  return items.flatMap((item) =>
+    item.children ? item.children.map((child) => child.key) : [item.key],
+  );
+}
+
+function collectOpenKeys(items: NavItem[], pathname: string): string[] {
+  return items
+    .filter((item) => item.children?.some((child) => pathname.startsWith(child.key)))
+    .map((item) => item.key);
+}
 
 export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const clearSession = useAuthStore((state) => state.clearSession);
-  const selectedKey = menuItems.find((item) => location.pathname.startsWith(item.key))?.key;
+
+  const leafKeys = collectLeafKeys(navItems);
+  const selectedKey = leafKeys.find((key) => location.pathname.startsWith(key)) ?? "/dashboard";
+  const openKeys = collectOpenKeys(navItems, location.pathname);
 
   function handleLogout() {
     clearSession();
@@ -45,7 +79,8 @@ export default function AppLayout() {
         <Menu
           mode="inline"
           selectedKeys={selectedKey ? [selectedKey] : []}
-          items={menuItems}
+          defaultOpenKeys={openKeys}
+          items={navItems as MenuProps["items"]}
           onClick={({ key }) => navigate(key)}
         />
       </Sider>

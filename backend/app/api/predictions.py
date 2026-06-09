@@ -4,12 +4,21 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.db_models.user import User
 from app.dependencies import get_current_user
-from app.schemas.prediction_schema import BatchPredictionResponse, PredictionJobResponse, SinglePredictionRequest, SinglePredictionResponse
+from app.schemas.prediction_schema import (
+    BatchPredictionResponse,
+    PredictionJobResponse,
+    RegressionSinglePredictionResponse,
+    RegressionSingleRequest,
+    SinglePredictionRequest,
+    SinglePredictionResponse,
+)
 from app.services import prediction_service
 
 
 router = APIRouter(prefix="/api/predictions", tags=["predictions"])
 
+
+# ── IgAN classification ──────────────────────────────────────────────────────
 
 @router.post("/igan/single", response_model=SinglePredictionResponse)
 def predict_single_igan(
@@ -29,6 +38,33 @@ async def predict_batch(
 ):
     return await prediction_service.run_batch_prediction(db, current_user, model_id, file)
 
+
+# ── Regression ────────────────────────────────────────────────────────────────
+
+@router.post("/regression/single", response_model=RegressionSinglePredictionResponse)
+def predict_single_regression(
+    payload: RegressionSingleRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return prediction_service.run_single_regression_prediction(
+        db, current_user, payload.model_id, payload.input_data,
+    )
+
+
+@router.post("/regression/batch/{model_id}", response_model=BatchPredictionResponse)
+async def predict_batch_regression(
+    model_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await prediction_service.run_batch_regression_prediction(
+        db, current_user, model_id, file,
+    )
+
+
+# ── History ───────────────────────────────────────────────────────────────────
 
 @router.get("/history", response_model=list[PredictionJobResponse])
 def prediction_history(

@@ -78,6 +78,102 @@ def list_prediction_jobs(db: Session, current_user: User) -> list[PredictionJob]
     return list(db.scalars(statement).all())
 
 
+# ── Regression prediction ──────────────────────────────────────────────────────
+
+
+def run_single_regression_prediction(
+    db: Session,
+    current_user: User,
+    model_id: int,
+    input_data: dict[str, Any],
+) -> dict[str, Any]:
+    model = get_model(db, current_user, model_id)
+    if model.task_type != "regression":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Model is not a regression model",
+        )
+    feature_frame = build_feature_frame(model.feature_columns, [input_data])
+    predicted_value = predict_regression_frame(model.model_file_path, feature_frame)
+    job = save_prediction_job(
+        db, current_user, model.id, "regression_single",
+        [input_data], [{"predicted_value": predicted_value}],
+    )
+    return {
+        "job_id": job.id,
+        "task": "regression",
+        "target": model.target_columns[0] if model.target_columns else "target",
+        "predicted_value": predicted_value,
+        "disclaimer": RESEARCH_DISCLAIMER,
+    }
+
+
+async def run_batch_regression_prediction(
+    db: Session,
+    current_user: User,
+    model_id: int,
+    file: UploadFile,
+) -> dict[str, Any]:
+    model = get_model(db, current_user, model_id)
+    if model.task_type != "regression":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Model is not a regression model",
+        )
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in {".csv", ".xlsx"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only CSV and XLSX files are supported")
+
+    PREDICTION_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    input_path = PREDICTION_STORAGE_DIR / f"regression_input_{uuid4().hex}{suffix}"
+    input_path.write_bytes(await file.read())
+
+    dataframe = read_dataframe(input_path)
+    feature_frame = build_feature_frame(model.feature_columns, dataframe.to_dict(orient="records"))
+    predicted_values = predict_regression_frame(model.model_file_path, feature_frame, as_list=True)
+
+    target_name = model.target_columns[0] if model.target_columns else "target"
+    rows: list[dict[str, Any]] = []
+    for index, pred_value in enumerate(predicted_values):
+        row = dataframe.iloc[index].astype(object).where(pd.notnull(dataframe.iloc[index]), None).to_dict()
+        row[f"pred_{target_name}"] = pred_value
+        rows.append(row)
+
+    output_path = PREDICTION_STORAGE_DIR / f"regression_output_{uuid4().hex}.csv"
+    pd.DataFrame(rows).to_csv(output_path, index=False)
+    predictions = [{"predicted_value": v} for v in predicted_values]
+    job = save_prediction_job(
+        db, current_user, model.id, "regression_batch",
+        dataframe.to_dict(orient="records"), predictions,
+        input_file_path=str(input_path), output_file_path=str(output_path),
+    )
+    return {"job_id": job.id, "rows": rows, "disclaimer": RESEARCH_DISCLAIMER}
+
+
+def predict_regression_frame(
+    model_dir: str | None,
+    feature_frame: pd.DataFrame,
+    as_list: bool = False,
+) -> float | list[float]:
+    if model_dir is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model files are missing")
+
+    model_path = Path(model_dir)
+    transformer_path = model_path / "opns_transformer.pkl"
+    transformed = feature_frame
+    if transformer_path.exists():
+        transformer = joblib.load(transformer_path)
+        transformed = transformer.transform(feature_frame)
+
+    regressor_path = model_path / "regressor.pkl"
+    if not regressor_path.exists():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Regressor file is missing")
+    regressor = joblib.load(regressor_path)
+    predictions = regressor.predict(transformed)
+    values = [round(float(v), 4) for v in predictions]
+    return values if as_list else values[0]
+
+
 def build_feature_frame(feature_columns: list[str], records: list[dict[str, Any]]) -> pd.DataFrame:
     frame = pd.DataFrame(records)
     for column in feature_columns:

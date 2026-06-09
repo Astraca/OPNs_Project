@@ -15,6 +15,14 @@ export type SinglePredictionResponse = {
   disclaimer: string;
 };
 
+export type RegressionSinglePredictionResponse = {
+  job_id: number;
+  task: string;
+  target: string;
+  predicted_value: number;
+  disclaimer: string;
+};
+
 export type BatchPredictionResponse = {
   job_id: number;
   rows: Record<string, unknown>[];

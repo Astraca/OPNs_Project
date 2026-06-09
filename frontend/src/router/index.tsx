@@ -16,6 +16,8 @@ import ModelTrainPage from "../pages/models/ModelTrainPage";
 import BatchPredictionPage from "../pages/prediction/BatchPredictionPage";
 import IganSinglePredictionPage from "../pages/prediction/IganSinglePredictionPage";
 import PredictionHistoryPage from "../pages/prediction/PredictionHistoryPage";
+import RegressionBatchPredictionPage from "../pages/prediction/RegressionBatchPredictionPage";
+import RegressionSinglePredictionPage from "../pages/prediction/RegressionSinglePredictionPage";
 import ProtectedRoute from "./ProtectedRoute";
 
 
@@ -41,6 +43,8 @@ export const router = createBrowserRouter([
           { path: "models/:id/evaluation", element: <ModelEvaluationPage /> },
           { path: "prediction/igan/single", element: <IganSinglePredictionPage /> },
           { path: "prediction/batch", element: <BatchPredictionPage /> },
+          { path: "prediction/regression/single", element: <RegressionSinglePredictionPage /> },
+          { path: "prediction/regression/batch", element: <RegressionBatchPredictionPage /> },
           { path: "prediction/history", element: <PredictionHistoryPage /> },
           { path: "reports", element: <PlaceholderPage title="分析报告" /> },
         ],

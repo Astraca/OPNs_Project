@@ -1,0 +1,94 @@
+import { Alert, Button, Col, Form, InputNumber, Row, Select, Statistic, Typography, message } from "antd";
+import { useEffect, useMemo, useState } from "react";
+
+import { listModels } from "../../api/models";
+import { predictSingleRegression } from "../../api/predictions";
+import type { MLModel } from "../../types/model";
+import type { RegressionSinglePredictionResponse } from "../../types/prediction";
+import { displayFieldName } from "../../utils/fieldNames";
+import "./PredictionPages.css";
+
+
+export default function RegressionSinglePredictionPage() {
+  const [form] = Form.useForm();
+  const [models, setModels] = useState<MLModel[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
+  const [result, setResult] = useState<RegressionSinglePredictionResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function loadModels() {
+      try {
+        const allModels = await listModels();
+        setModels(allModels.filter((m) => m.task_type === "regression"));
+      } catch {
+        message.error("模型列表加载失败");
+      }
+    }
+    void loadModels();
+  }, []);
+
+  const selectedModel = useMemo(
+    () => models.find((m) => m.id === selectedModelId) ?? null,
+    [models, selectedModelId],
+  );
+
+  async function handleSubmit(values: Record<string, unknown>) {
+    if (!selectedModelId || !selectedModel) {
+      message.warning("请选择回归模型");
+      return;
+    }
+    setLoading(true);
+    try {
+      const inputData = { ...values };
+      delete inputData.model_id;
+      setResult(await predictSingleRegression({ model_id: selectedModelId, input_data: inputData }));
+      message.success("预测完成");
+    } catch {
+      message.error("预测失败，请检查输入字段");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main>
+      <Typography.Title level={3}>回归单样本预测</Typography.Title>
+      <Form form={form} layout="vertical" className="prediction-form" onFinish={handleSubmit}>
+        <Form.Item name="model_id" label="回归模型" rules={[{ required: true, message: "请选择回归模型" }]}>
+          <Select
+            placeholder={models.length ? "选择模型" : "暂无回归模型"}
+            options={models.map((m) => ({ label: `${m.model_name} (${m.algorithm})`, value: m.id }))}
+            onChange={(value: number) => setSelectedModelId(value)}
+          />
+        </Form.Item>
+        {selectedModel && (
+          <Row gutter={16}>
+            {selectedModel.feature_columns.map((feature) => (
+              <Col xs={24} md={8} key={feature}>
+                <Form.Item name={feature} label={displayFieldName(feature)}>
+                  <InputNumber style={{ width: "100%" }} />
+                </Form.Item>
+              </Col>
+            ))}
+          </Row>
+        )}
+        <Button type="primary" htmlType="submit" loading={loading}>
+          开始预测
+        </Button>
+      </Form>
+
+      {result && (
+        <section className="prediction-section">
+          <Typography.Title level={4}>预测结果</Typography.Title>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} md={8}>
+              <Statistic title={`预测 ${displayFieldName(result.target)}`} value={result.predicted_value} />
+            </Col>
+          </Row>
+          <Alert className="prediction-section" type="info" showIcon message={result.disclaimer} />
+        </section>
+      )}
+    </main>
+  );
+}
