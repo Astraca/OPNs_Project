@@ -34,8 +34,8 @@ const navItems: NavItem[] = [
     icon: <ThunderboltOutlined />,
     label: "预测",
     children: [
-      { key: "/prediction/igan/single", label: "IgAN 单病例" },
-      { key: "/prediction/batch", label: "IgAN 批量" },
+      { key: "/prediction/igan/single", label: "分类单样本" },
+      { key: "/prediction/batch", label: "分类批量" },
       { key: "/prediction/regression/single", label: "回归单样本" },
       { key: "/prediction/regression/batch", label: "回归批量" },
       { key: "/prediction/history", label: "预测历史" },

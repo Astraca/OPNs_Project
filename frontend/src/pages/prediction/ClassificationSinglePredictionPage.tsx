@@ -9,7 +9,7 @@ import { displayFieldName } from "../../utils/fieldNames";
 import "./PredictionPages.css";
 
 
-export default function IganSinglePredictionPage() {
+export default function ClassificationSinglePredictionPage() {
   const [form] = Form.useForm();
   const [models, setModels] = useState<MLModel[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
@@ -19,17 +19,17 @@ export default function IganSinglePredictionPage() {
   useEffect(() => {
     async function loadModels() {
       try {
-        setModels(await listModels());
+        const allModels = await listModels();
+        setModels(allModels.filter((m) => m.task_type !== "regression"));
       } catch {
         message.error("模型列表加载失败");
       }
     }
-
     void loadModels();
   }, []);
 
   const selectedModel = useMemo(
-    () => models.find((model) => model.id === selectedModelId) ?? null,
+    () => models.find((m) => m.id === selectedModelId) ?? null,
     [models, selectedModelId],
   );
 
@@ -53,12 +53,13 @@ export default function IganSinglePredictionPage() {
 
   return (
     <main>
-      <Typography.Title level={3}>IgAN 单病例预测</Typography.Title>
+      <Typography.Title level={3}>分类单样本预测</Typography.Title>
       <Form form={form} layout="vertical" className="prediction-form" onFinish={handleSubmit}>
-        <Form.Item name="model_id" label="模型" rules={[{ required: true, message: "请选择模型" }]}>
+        <Form.Item name="model_id" label="分类模型" rules={[{ required: true }]}>
           <Select
-            options={models.map((model) => ({ label: `${model.model_name} (${model.algorithm})`, value: model.id }))}
-            onChange={(value: number) => setSelectedModelId(value)}
+            placeholder={models.length ? "选择模型" : "暂无分类模型"}
+            options={models.map((m) => ({ label: `${m.model_name} (${m.algorithm})`, value: m.id }))}
+            onChange={(v: number) => setSelectedModelId(v)}
           />
         </Form.Item>
         {selectedModel && (
@@ -74,7 +75,7 @@ export default function IganSinglePredictionPage() {
             </Row>
           </div>
         )}
-        <Button type="primary" htmlType="submit" loading={loading}>
+        <Button type="primary" htmlType="submit" loading={loading} style={{ marginTop: 12 }}>
           开始预测
         </Button>
       </Form>

@@ -1,5 +1,5 @@
 import { InboxOutlined } from "@ant-design/icons";
-import { Alert, Form, Select, Table, Typography, Upload, message } from "antd";
+import { Alert, Form, Select, Spin, Table, Typography, Upload, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { UploadProps } from "antd";
 import { useEffect, useMemo, useState } from "react";
@@ -17,6 +17,7 @@ export default function BatchPredictionPage() {
   const [models, setModels] = useState<MLModel[]>([]);
   const [modelId, setModelId] = useState<number | null>(null);
   const [result, setResult] = useState<BatchPredictionResponse | null>(null);
+  const [predicting, setPredicting] = useState(false);
 
   useEffect(() => {
     async function loadModels() {
@@ -38,11 +39,14 @@ export default function BatchPredictionPage() {
         message.warning("请先选择模型");
         return false;
       }
+      setPredicting(true);
       try {
         setResult(await runBatchPrediction(modelId, file));
         message.success("批量预测完成");
       } catch {
         message.error("批量预测失败，请检查文件字段是否与模型一致");
+      } finally {
+        setPredicting(false);
       }
       return false;
     },
@@ -78,7 +82,12 @@ export default function BatchPredictionPage() {
             />
           </Form.Item>
         </Form>
-        <Dragger {...uploadProps}>
+        {predicting && (
+          <div className="prediction-batch-spin">
+            <Spin tip="正在预测中，请稍候..." size="large" />
+          </div>
+        )}
+        <Dragger {...uploadProps} disabled={predicting}>
           <p className="ant-upload-drag-icon">
             <InboxOutlined />
           </p>

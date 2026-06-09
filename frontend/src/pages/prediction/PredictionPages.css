@@ -21,3 +21,18 @@
   border: 1px solid #e5e7eb;
   border-radius: 8px;
 }
+
+.prediction-features-scroll {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 10px 8px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  background: #fafbfc;
+  scrollbar-width: thin;
+}
+
+.prediction-batch-spin {
+  padding: 32px;
+  text-align: center;
+}

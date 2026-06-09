@@ -23,6 +23,7 @@ MODEL_STORAGE_DIR = Path("storage/models")
 
 
 def train_classification_model(db: Session, current_user: User, payload: ModelTrainRequest) -> MLModel:
+    _check_duplicate_model_name(db, current_user, payload.model_name)
     dataset = get_dataset(db, current_user, payload.dataset_id)
     dataframe = read_dataset_file(dataset)
     requested_targets = payload.target_columns or get_mestc_target_columns([str(column) for column in dataframe.columns])
@@ -152,6 +153,20 @@ def list_models(db: Session, current_user: User) -> list[MLModel]:
     return list(db.scalars(statement).all())
 
 
+def _check_duplicate_model_name(db: Session, current_user: User, name: str) -> None:
+    existing = db.scalar(
+        select(MLModel).where(
+            MLModel.user_id == current_user.id,
+            MLModel.model_name == name,
+        ),
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"模型名称 '{name}' 已存在，请使用其他名称",
+        )
+
+
 def get_model(db: Session, current_user: User, model_id: int) -> MLModel:
     model = db.get(MLModel, model_id)
     if model is None or model.user_id != current_user.id:
@@ -191,6 +206,7 @@ def get_model_metadata(db: Session, current_user: User, model_id: int) -> dict:
 
 
 def train_regression_model(db: Session, current_user: User, payload: RegressionTrainRequest) -> MLModel:
+    _check_duplicate_model_name(db, current_user, payload.model_name)
     dataset = get_dataset(db, current_user, payload.dataset_id)
     dataframe = read_dataset_file(dataset)
 

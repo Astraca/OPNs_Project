@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 
 import { generatePredictionExplanation } from "../../api/ai";
 import { getPredictionDetail, listPredictionJobs } from "../../api/predictions";
+import { listModels } from "../../api/models";
 import AIReportPanel from "../ai/AIReportPanel";
 import type { AIAnalysisReport } from "../../types/ai";
+import type { MLModel } from "../../types/model";
 import type { PredictionJob } from "../../types/prediction";
 import "./PredictionPages.css";
 
@@ -20,6 +22,7 @@ const JOB_TYPE_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function PredictionHistoryPage() {
   const [jobs, setJobs] = useState<PredictionJob[]>([]);
+  const [modelMap, setModelMap] = useState<Map<number, string>>(new Map());
   const [aiReport, setAiReport] = useState<AIAnalysisReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
@@ -29,7 +32,14 @@ export default function PredictionHistoryPage() {
     async function loadJobs() {
       setLoading(true);
       try {
-        setJobs(await listPredictionJobs());
+        const [jobData, modelData] = await Promise.all([
+          listPredictionJobs(),
+          listModels(),
+        ]);
+        setJobs(jobData);
+        const map = new Map<number, string>();
+        modelData.forEach((m) => map.set(m.id, m.model_name));
+        setModelMap(map);
       } catch {
         message.error("预测历史加载失败");
       } finally {
@@ -64,7 +74,12 @@ export default function PredictionHistoryPage() {
 
   const columns: ColumnsType<PredictionJob> = [
     { title: "ID", dataIndex: "id", width: 60 },
-    { title: "模型 ID", dataIndex: "model_id", width: 80 },
+    {
+      title: "模型",
+      dataIndex: "model_id",
+      width: 140,
+      render: (id: number) => modelMap.get(id) || `#${id}`,
+    },
     {
       title: "类型",
       dataIndex: "job_type",

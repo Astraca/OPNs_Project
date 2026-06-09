@@ -1,4 +1,4 @@
-import { Alert, Button, Form, Input, InputNumber, Select, Typography, message } from "antd";
+import { Alert, Button, Form, Input, InputNumber, Select, Slider, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -15,19 +15,30 @@ function isOpnsAlgorithm(algo: string | undefined): boolean {
   return (algo ?? "").startsWith("OPNs");
 }
 
+const CLASSIFICATION_TASK_TYPES = ["multi_output_classification", "classification"];
+const REGRESSION_TASK_TYPES = ["regression"];
+
 export default function ModelTrainPage() {
   const navigate = useNavigate();
   const [form] = Form.useForm<ModelTrainPayload | RegressionTrainPayload>();
-  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [allDatasets, setAllDatasets] = useState<Dataset[]>([]);
   const [training, setTraining] = useState(false);
   const [mode, setMode] = useState<TaskMode>("classification");
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
   const [selectedAlgorithm, setSelectedAlgorithm] = useState<string>("OPNs-SVM");
 
+  const datasets = useMemo(
+    () => allDatasets.filter((d) => {
+      const types = mode === "regression" ? REGRESSION_TASK_TYPES : CLASSIFICATION_TASK_TYPES;
+      return d.file_path && types.includes(d.task_type);
+    }),
+    [allDatasets, mode],
+  );
+
   useEffect(() => {
     async function loadDatasets() {
       try {
-        setDatasets((await listDatasets()).filter((d) => Boolean(d.file_path)));
+        setAllDatasets(await listDatasets());
       } catch {
         message.error("数据集加载失败");
       }
@@ -80,8 +91,12 @@ export default function ModelTrainPage() {
         message.success("模型训练完成");
         navigate(`/models/${model.id}/evaluation`);
       }
-    } catch {
-      message.error(mode === "regression"
+    } catch (err: unknown) {
+      const detail =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      message.error(typeof detail === "string" ? detail : mode === "regression"
         ? "回归模型训练失败，请检查数据集中是否包含连续目标变量和数值特征"
         : "模型训练失败，请检查数据集中是否包含目标列和数值特征");
     } finally {
@@ -213,7 +228,7 @@ export default function ModelTrainPage() {
         )}
 
         <Form.Item name="test_size" label="测试集比例" rules={[{ required: true }]}>
-          <InputNumber min={0.1} max={0.4} step={0.05} />
+          <Slider min={0.1} max={0.4} step={0.05} marks={{ 0.1: "10%", 0.2: "20%", 0.3: "30%", 0.4: "40%" }} />
         </Form.Item>
 
         <Form.Item name="random_state" label="随机种子" rules={[{ required: true }]}>

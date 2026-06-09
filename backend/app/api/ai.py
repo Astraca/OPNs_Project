@@ -19,7 +19,7 @@ async def generate_dataset_analysis(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return ai_analysis_service.generate_dataset_analysis(db, current_user, dataset_id)
+    return await ai_analysis_service.generate_dataset_analysis(db, current_user, dataset_id)
 
 
 @router.get("/dataset-analysis/{dataset_id}", response_model=AIAnalysisReportResponse)
@@ -39,7 +39,7 @@ async def generate_model_analysis(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return ai_analysis_service.generate_model_analysis(db, current_user, model_id)
+    return await ai_analysis_service.generate_model_analysis(db, current_user, model_id)
 
 
 @router.get("/model-analysis/{model_id}", response_model=AIAnalysisReportResponse)
@@ -59,4 +59,4 @@ async def generate_prediction_explanation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return ai_analysis_service.generate_prediction_explanation(db, current_user, prediction_job_id)
+    return await ai_analysis_service.generate_prediction_explanation(db, current_user, prediction_job_id)
