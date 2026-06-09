@@ -1,39 +1,67 @@
-import { BarChartOutlined, PlusOutlined } from "@ant-design/icons";
-import { Button, Space, Table, Tag, Typography, message } from "antd";
+import { BarChartOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
+import { Button, Popconfirm, Space, Table, Tag, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { listModels } from "../../api/models";
+import { deleteModel, listModels } from "../../api/models";
 import type { MLModel } from "../../types/model";
 import { displayFieldName } from "../../utils/fieldNames";
 import "./ModelPages.css";
 
+
+const TASK_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  classification: { label: "单标签分类", color: "green" },
+  multi_output_classification: { label: "多标签分类", color: "blue" },
+  regression: { label: "回归", color: "orange" },
+};
 
 export default function ModelListPage() {
   const navigate = useNavigate();
   const [models, setModels] = useState<MLModel[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    async function loadModels() {
-      setLoading(true);
-      try {
-        setModels(await listModels());
-      } catch {
-        message.error("模型列表加载失败");
-      } finally {
-        setLoading(false);
-      }
+  async function loadModels() {
+    setLoading(true);
+    try {
+      setModels(await listModels());
+    } catch {
+      message.error("模型列表加载失败");
+    } finally {
+      setLoading(false);
     }
+  }
 
+  useEffect(() => {
     void loadModels();
   }, []);
 
+  async function handleDelete(modelId: number) {
+    try {
+      await deleteModel(modelId);
+      message.success("模型已删除");
+      setModels((prev) => prev.filter((m) => m.id !== modelId));
+    } catch {
+      message.error("删除失败");
+    }
+  }
+
   const columns: ColumnsType<MLModel> = [
     { title: "名称", dataIndex: "model_name" },
+    {
+      title: "任务类型",
+      dataIndex: "task_type",
+      render: (value: string) => {
+        const info = TASK_TYPE_LABELS[value] ?? { label: value, color: "default" };
+        return <Tag color={info.color}>{info.label}</Tag>;
+      },
+    },
     { title: "算法", dataIndex: "algorithm", render: (value: string) => <Tag color="blue">{value}</Tag> },
-    { title: "目标字段", dataIndex: "target_columns", render: (targets: string[]) => targets.map(displayFieldName).join(", ") },
+    {
+      title: "目标字段",
+      dataIndex: "target_columns",
+      render: (targets: string[]) => targets.map(displayFieldName).join(", "),
+    },
     { title: "特征数", dataIndex: "feature_columns", render: (features: string[]) => features.length },
     {
       title: "操作",
@@ -43,6 +71,9 @@ export default function ModelListPage() {
           <Button icon={<BarChartOutlined />} onClick={() => navigate(`/models/${record.id}/evaluation`)}>
             评估
           </Button>
+          <Popconfirm title="确定删除此模型？" onConfirm={() => handleDelete(record.id)}>
+            <Button danger icon={<DeleteOutlined />} />
+          </Popconfirm>
         </Space>
       ),
     },

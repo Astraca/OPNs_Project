@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 from app.db_models.prediction import PredictionJob, PredictionResult
 from app.db_models.user import User
 from app.schemas.prediction_schema import RESEARCH_DISCLAIMER
-from app.services.dataset_service import read_dataframe
 from app.services.training_service import get_model
+from app.utils.file_utils import ALLOWED_SUFFIXES, read_dataframe
 from app.utils.igan_fields import display_target_name, format_prediction_label
 
 
@@ -36,8 +36,11 @@ def run_single_prediction(db: Session, current_user: User, model_id: int, input_
 async def run_batch_prediction(db: Session, current_user: User, model_id: int, file: UploadFile) -> dict[str, Any]:
     model = get_model(db, current_user, model_id)
     suffix = Path(file.filename or "").suffix.lower()
-    if suffix not in {".csv", ".xlsx"}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only CSV and XLSX files are supported")
+    if suffix not in ALLOWED_SUFFIXES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file type: {suffix}. Supported: {', '.join(sorted(ALLOWED_SUFFIXES))}",
+        )
 
     PREDICTION_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     input_path = PREDICTION_STORAGE_DIR / f"prediction_input_{uuid4().hex}{suffix}"
@@ -121,8 +124,11 @@ async def run_batch_regression_prediction(
             detail="Model is not a regression model",
         )
     suffix = Path(file.filename or "").suffix.lower()
-    if suffix not in {".csv", ".xlsx"}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only CSV and XLSX files are supported")
+    if suffix not in ALLOWED_SUFFIXES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file type: {suffix}. Supported: {', '.join(sorted(ALLOWED_SUFFIXES))}",
+        )
 
     PREDICTION_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     input_path = PREDICTION_STORAGE_DIR / f"regression_input_{uuid4().hex}{suffix}"

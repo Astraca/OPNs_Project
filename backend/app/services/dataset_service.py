@@ -10,11 +10,17 @@ from sqlalchemy.orm import Session
 from app.db_models.dataset import Dataset, DatasetColumn
 from app.db_models.user import User
 from app.schemas.dataset_schema import DatasetColumnRolesUpdateRequest, DatasetCreateRequest
-from app.utils.igan_fields import get_default_feature_columns, get_output_columns, infer_column_role
+from app.utils.file_utils import ALLOWED_SUFFIXES, read_dataframe
+from app.utils.igan_fields import (
+    get_default_feature_columns,
+    get_mestc_target_columns,
+    get_output_columns,
+    infer_column_role,
+    suggest_target_columns,
+)
 
 
 STORAGE_DIR = Path("storage/datasets")
-ALLOWED_SUFFIXES = {".csv", ".xlsx"}
 
 
 def create_dataset(db: Session, current_user: User, payload: DatasetCreateRequest) -> Dataset:
@@ -77,7 +83,7 @@ async def save_upload_file(db: Session, current_user: User, dataset_id: int, fil
     if suffix not in ALLOWED_SUFFIXES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only CSV and XLSX files are supported",
+            detail=f"Unsupported file type: {suffix}. Supported: {', '.join(sorted(ALLOWED_SUFFIXES))}",
         )
 
     STORAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -86,7 +92,16 @@ async def save_upload_file(db: Session, current_user: User, dataset_id: int, fil
     file_path.write_bytes(await file.read())
 
     dataframe = read_dataframe(file_path)
-    target_columns = get_output_columns([str(column) for column in dataframe.columns])
+    columns = [str(column) for column in dataframe.columns]
+
+    # Auto-detect target columns
+    target_columns = get_output_columns(columns)
+    # Fallback: try M/E/S/T/C legacy names
+    if not target_columns:
+        target_columns = get_mestc_target_columns(columns)
+    # Suggest candidates if still empty
+    if not target_columns:
+        target_columns = suggest_target_columns(columns, dataset.task_type)
 
     dataset.file_path = str(file_path)
     dataset.file_type = suffix.lstrip(".")
@@ -206,14 +221,6 @@ def read_dataset_file(dataset: Dataset) -> pd.DataFrame:
     if dataset.file_path is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Dataset file has not been uploaded")
     return read_dataframe(Path(dataset.file_path))
-
-
-def read_dataframe(file_path: Path) -> pd.DataFrame:
-    if file_path.suffix.lower() == ".csv":
-        return pd.read_csv(file_path)
-    if file_path.suffix.lower() == ".xlsx":
-        return pd.read_excel(file_path)
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported dataset file type")
 
 
 def build_column_summaries(

@@ -1,5 +1,5 @@
-import { Button, Form, Input, InputNumber, Select, Typography, message } from "antd";
-import { useEffect, useState } from "react";
+import { Alert, Button, Form, Input, InputNumber, Select, Typography, message } from "antd";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { listDatasets } from "../../api/datasets";
@@ -17,6 +17,7 @@ export default function ModelTrainPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [training, setTraining] = useState(false);
   const [mode, setMode] = useState<TaskMode>("classification");
+  const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadDatasets() {
@@ -28,6 +29,37 @@ export default function ModelTrainPage() {
     }
     void loadDatasets();
   }, []);
+
+  const selectedDataset = useMemo(
+    () => datasets.find((d) => d.id === selectedDatasetId) ?? null,
+    [datasets, selectedDatasetId],
+  );
+
+  // When dataset changes, auto-populate target fields
+  function handleDatasetChange(datasetId: number) {
+    setSelectedDatasetId(datasetId);
+    const ds = datasets.find((d) => d.id === datasetId);
+    if (!ds) return;
+
+    if (mode === "classification" && ds.target_columns.length > 0) {
+      form.setFieldsValue({ target_columns: ds.target_columns } as Partial<ModelTrainPayload>);
+    } else if (mode === "regression" && ds.target_columns.length > 0) {
+      form.setFieldsValue({ target_column: ds.target_columns[0] } as Partial<RegressionTrainPayload>);
+    }
+  }
+
+  function handleModeChange(value: TaskMode) {
+    setMode(value);
+    form.resetFields(["algorithm", "target_columns", "target_column"]);
+    // Re-populate from dataset if available
+    if (selectedDataset) {
+      if (value === "classification" && selectedDataset.target_columns.length > 0) {
+        form.setFieldsValue({ target_columns: selectedDataset.target_columns } as Partial<ModelTrainPayload>);
+      } else if (value === "regression" && selectedDataset.target_columns.length > 0) {
+        form.setFieldsValue({ target_column: selectedDataset.target_columns[0] } as Partial<RegressionTrainPayload>);
+      }
+    }
+  }
 
   async function handleSubmit(values: ModelTrainPayload | RegressionTrainPayload) {
     setTraining(true);
@@ -44,7 +76,7 @@ export default function ModelTrainPage() {
     } catch {
       message.error(mode === "regression"
         ? "回归模型训练失败，请检查数据集中是否包含连续目标变量和数值特征"
-        : "模型训练失败，请检查数据集中是否包含 M/E/S/T/C 和数值特征");
+        : "模型训练失败，请检查数据集中是否包含目标列和数值特征");
     } finally {
       setTraining(false);
     }
@@ -59,7 +91,6 @@ export default function ModelTrainPage() {
         className="model-form"
         initialValues={{
           algorithm: "OPNs-SVM",
-          target_columns: ["out-M", "out-E", "out-S", "out-T", "out-C"],
           pairing_method: "adjacent",
           test_size: 0.2,
           random_state: 42,
@@ -70,21 +101,32 @@ export default function ModelTrainPage() {
           <Select
             value={mode}
             options={[
-              { label: "IgAN MEST-C 分类", value: "classification" },
+              { label: "分类（多标签 / 单标签）", value: "classification" },
               { label: "回归预测", value: "regression" },
             ]}
-            onChange={(value: TaskMode) => {
-              setMode(value);
-              form.resetFields(["algorithm", "target_columns", "target_column"]);
-            }}
+            onChange={handleModeChange}
           />
         </Form.Item>
 
         <Form.Item name="dataset_id" label="数据集" rules={[{ required: true, message: "请选择数据集" }]}>
           <Select
-            options={datasets.map((d) => ({ label: `${d.name} (${d.sample_count} 行)`, value: d.id }))}
+            options={datasets.map((d) => ({
+              label: `${d.name} (${d.sample_count} 行, 目标: ${d.target_columns.length ? d.target_columns.join(",") : "未设置"})`,
+              value: d.id,
+            }))}
+            onChange={handleDatasetChange}
           />
         </Form.Item>
+
+        {selectedDataset && !selectedDataset.target_columns.length && (
+          <Alert
+            type="warning"
+            showIcon
+            message="该数据集未设置目标字段"
+            description="请先在数据集详情页设置目标字段（将目标列的 role 改为 target 并保存），然后再来训练模型。"
+            style={{ marginBottom: 16 }}
+          />
+        )}
 
         <Form.Item name="model_name" label="模型名称" rules={[{ required: true, message: "请输入模型名称" }]}>
           <Input maxLength={128} />
@@ -102,13 +144,17 @@ export default function ModelTrainPage() {
             </Form.Item>
             <Form.Item
               name="target_columns"
-              label="目标字段"
-              rules={[{ required: true }]}
-              initialValue={["out-M", "out-E", "out-S", "out-T", "out-C"]}
+              label="目标字段（可多选）"
+              rules={[{ required: true, message: "请选择至少一个目标字段" }]}
             >
               <Select
                 mode="multiple"
-                options={["out-M", "out-E", "out-S", "out-T", "out-C"].map((t) => ({ label: t, value: t }))}
+                placeholder="选择目标字段"
+                options={
+                  selectedDataset
+                    ? selectedDataset.target_columns.map((t) => ({ label: t, value: t }))
+                    : []
+                }
               />
             </Form.Item>
           </>
@@ -127,9 +173,16 @@ export default function ModelTrainPage() {
             <Form.Item
               name="target_column"
               label="目标字段（回归）"
-              rules={[{ required: true, message: "请输入连续目标字段名" }]}
+              rules={[{ required: true, message: "请选择连续目标字段" }]}
             >
-              <Input placeholder="例如：in-eGFR" maxLength={128} />
+              <Select
+                placeholder="选择目标字段"
+                options={
+                  selectedDataset
+                    ? selectedDataset.target_columns.map((t) => ({ label: t, value: t }))
+                    : []
+                }
+              />
             </Form.Item>
           </>
         )}

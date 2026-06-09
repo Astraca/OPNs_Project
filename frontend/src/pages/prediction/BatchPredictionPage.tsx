@@ -31,7 +31,7 @@ export default function BatchPredictionPage() {
   }, []);
 
   const uploadProps: UploadProps = {
-    accept: ".csv,.xlsx",
+    accept: ".csv,.xlsx,.txt,.dat,.data",
     showUploadList: false,
     beforeUpload: async (file) => {
       if (!modelId) {

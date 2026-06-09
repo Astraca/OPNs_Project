@@ -1,4 +1,4 @@
-import { DeleteOutlined, EyeOutlined, PlusOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EyeOutlined, PlusOutlined, WarningOutlined } from "@ant-design/icons";
 import { Button, Popconfirm, Space, Table, Tag, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState } from "react";
@@ -8,6 +8,12 @@ import { deleteDataset, listDatasets } from "../../api/datasets";
 import type { Dataset } from "../../types/dataset";
 import "./DatasetPages.css";
 
+
+const TASK_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  classification: { label: "单标签分类", color: "green" },
+  multi_output_classification: { label: "多标签分类", color: "blue" },
+  regression: { label: "回归", color: "orange" },
+};
 
 export default function DatasetListPage() {
   const navigate = useNavigate();
@@ -41,14 +47,33 @@ export default function DatasetListPage() {
 
   const columns: ColumnsType<Dataset> = [
     { title: "名称", dataIndex: "name" },
-    { title: "任务类型", dataIndex: "task_type" },
+    {
+      title: "任务类型",
+      dataIndex: "task_type",
+      render: (value: string) => {
+        const info = TASK_TYPE_LABELS[value] ?? { label: value, color: "default" };
+        return <Tag color={info.color}>{info.label}</Tag>;
+      },
+    },
+    {
+      title: "文件",
+      dataIndex: "file_type",
+      render: (value: string | null) =>
+        value ? <Tag>{value.toUpperCase()}</Tag> : <Tag color="red">未上传</Tag>,
+    },
     { title: "样本数", dataIndex: "sample_count" },
     { title: "字段数", dataIndex: "feature_count" },
     {
       title: "目标字段",
       dataIndex: "target_columns",
-      render: (targets: string[]) =>
-        targets.length ? targets.map((target) => <Tag key={target}>{target}</Tag>) : "-",
+      render: (targets: string[], record) =>
+        targets.length ? (
+          targets.map((t) => <Tag key={t}>{t}</Tag>)
+        ) : record.file_path ? (
+          <Typography.Text type="warning"><WarningOutlined /> 未设置</Typography.Text>
+        ) : (
+          "-"
+        ),
     },
     {
       title: "操作",
