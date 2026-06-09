@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/ai", tags=["ai"])
 # ── Dataset analysis ──────────────────────────────────────────────────────────
 
 @router.post("/dataset-analysis/{dataset_id}", response_model=AIAnalysisReportResponse)
-def generate_dataset_analysis(
+async def generate_dataset_analysis(
     dataset_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -34,7 +34,7 @@ def get_dataset_analysis(
 # ── Model analysis ────────────────────────────────────────────────────────────
 
 @router.post("/model-analysis/{model_id}", response_model=AIAnalysisReportResponse)
-def generate_model_analysis(
+async def generate_model_analysis(
     model_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -54,7 +54,7 @@ def get_model_analysis(
 # ── Prediction explanation ────────────────────────────────────────────────────
 
 @router.post("/prediction-explanation/{prediction_job_id}", response_model=AIAnalysisReportResponse)
-def generate_prediction_explanation(
+async def generate_prediction_explanation(
     prediction_job_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

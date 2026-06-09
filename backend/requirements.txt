@@ -11,3 +11,4 @@ joblib
 openpyxl
 bcrypt
 python-jose[cryptography]
+httpx

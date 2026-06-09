@@ -1,18 +1,114 @@
+import json
+from typing import Any
+
+import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
+from app.config import get_settings
 from app.db_models.ai_report import AIAnalysisReport
 from app.db_models.ml_model import ModelMetric
 from app.db_models.prediction import PredictionJob, PredictionResult
 from app.db_models.user import User
 from app.schemas.prediction_schema import RESEARCH_DISCLAIMER
+from app.services.ai_config_service import get_active_config, get_default_template
 from app.services.dataset_service import get_dataset, get_missing_values_chart, get_profile
 from app.services.training_service import get_model
 from app.utils.igan_fields import display_target_name
 
 
-def generate_dataset_analysis(db: Session, current_user: User, dataset_id: int) -> AIAnalysisReport:
+async def _call_llm(
+    db: Session,
+    current_user: User,
+    template_type: str,
+    prompt_vars: dict[str, Any],
+) -> str:
+    """Call the configured LLM or fall back to mock template."""
+    config = get_active_config(db, current_user)
+    settings = get_settings()
+
+    if config is None or settings.ai_mode != "llm":
+        return _generate_mock(template_type, prompt_vars)
+
+    template = get_default_template(template_type)
+    system_prompt = template.get("system_prompt", "")
+    user_prompt = template["user_prompt"].format(**prompt_vars)
+
+    # Determine auth header based on provider
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if config.provider == "claude":
+        headers["x-api-key"] = config.api_key
+        headers["anthropic-version"] = "2023-06-01"
+    else:
+        headers["Authorization"] = f"Bearer {config.api_key}"
+
+    # Build request body (OpenAI-compatible format by default)
+    if config.provider == "claude":
+        body: dict[str, Any] = {
+            "model": config.model_name,
+            "max_tokens": 2048,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": user_prompt}],
+        }
+        api_url = f"{config.api_base.rstrip('/')}/messages"
+    else:
+        body = {
+            "model": config.model_name,
+            "temperature": 0.3,
+            "max_tokens": 2048,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        }
+        api_url = f"{config.api_base.rstrip('/')}/chat/completions"
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(api_url, headers=headers, json=body)
+            resp.raise_for_status()
+            data = resp.json()
+
+            if config.provider == "claude":
+                return data["content"][0]["text"]
+            return data["choices"][0]["message"]["content"]
+    except httpx.HTTPError as exc:
+        # Fall back to mock on API failure
+        return _generate_mock(template_type, prompt_vars) + (
+            f"\n\n（注：LLM 调用失败 [{type(exc).__name__}]，以上内容为模板生成。）"
+        )
+    except Exception:
+        return _generate_mock(template_type, prompt_vars)
+
+
+def _generate_mock(template_type: str, prompt_vars: dict[str, Any]) -> str:
+    """Generate analysis text using templates (no external API)."""
+    if template_type == "dataset_analysis":
+        return "\n".join([
+            f"数据集包含 {prompt_vars.get('sample_count', '?')} 条样本、{prompt_vars.get('feature_count', '?')} 个字段。",
+            f"当前目标字段为：{prompt_vars.get('target_columns', '暂未识别')}。",
+            "建模前建议确认 ignored 字段是否已排除。",
+            "若某些标签分布明显不均衡，模型评估时应重点关注 Precision、Recall 和 F1。",
+            RESEARCH_DISCLAIMER,
+        ])
+    if template_type == "model_analysis":
+        return "\n".join([
+            f"模型使用 {prompt_vars.get('algorithm', '?')} 算法。",
+            f"输入特征数为 {prompt_vars.get('feature_count', '?')}。",
+            "不同标签表现差异应结合样本量、类别不平衡和缺失值情况理解。",
+            "该分析不代表医学诊断能力，只用于模型验证和科研讨论。",
+            RESEARCH_DISCLAIMER,
+        ])
+    return "\n".join([
+        f"预测任务共生成 {prompt_vars.get('sample_count', '?')} 条预测结果。",
+        "单个标签的概率仅表示模型在当前训练数据和特征处理流程下的分类置信度。",
+        "该说明不包含诊断结论、治疗建议或用药建议。",
+        RESEARCH_DISCLAIMER,
+    ])
+
+
+async def generate_dataset_analysis(db: Session, current_user: User, dataset_id: int) -> AIAnalysisReport:
     profile = get_profile(db, current_user, dataset_id)
     missing = get_missing_values_chart(db, current_user, dataset_id)
     dataset = profile["dataset"]
@@ -27,20 +123,19 @@ def generate_dataset_analysis(db: Session, current_user: User, dataset_id: int) 
         "missing_values": high_missing,
         "target_distribution": profile["target_distribution"],
     }
-    text = "\n".join(
-        [
-            f"数据集包含 {dataset.sample_count} 条样本、{dataset.feature_count} 个字段。",
-            f"当前目标字段为：{', '.join(map(display_target_name, dataset.target_columns)) or '暂未识别'}。",
-            "缺失值较高字段：" + (", ".join(item["column_name"] for item in high_missing) if high_missing else "未发现缺失率超过 10% 的字段。"),
-            "建模前建议确认 ignored 字段是否已排除，尤其是姓名、住院号、编号、日期等标识信息。",
-            "若某些标签分布明显不均衡，模型评估时应重点关注 Precision、Recall 和 F1，而不只看 Accuracy。",
-            RESEARCH_DISCLAIMER,
-        ]
-    )
+
+    prompt_vars = {
+        "sample_count": str(dataset.sample_count),
+        "feature_count": str(dataset.feature_count),
+        "target_columns": ", ".join(map(display_target_name, dataset.target_columns)) or "暂未识别",
+        "missing_values": json.dumps(high_missing, ensure_ascii=False),
+        "target_distribution": json.dumps(profile["target_distribution"], ensure_ascii=False),
+    }
+    text = await _call_llm(db, current_user, "dataset_analysis", prompt_vars)
     return save_ai_report(db, current_user, "dataset_analysis", text, summary, dataset_id=dataset_id)
 
 
-def generate_model_analysis(db: Session, current_user: User, model_id: int) -> AIAnalysisReport:
+async def generate_model_analysis(db: Session, current_user: User, model_id: int) -> AIAnalysisReport:
     model = get_model(db, current_user, model_id)
     statement = select(ModelMetric).where(ModelMetric.model_id == model.id)
     metrics = list(db.scalars(statement).all())
@@ -57,20 +152,19 @@ def generate_model_analysis(db: Session, current_user: User, model_id: int) -> A
         "feature_columns": model.feature_columns,
         "metrics": grouped,
     }
-    text = "\n".join(
-        [
-            f"模型 {model.model_name} 使用 {model.algorithm} 算法，输入特征数为 {len(model.feature_columns)}。",
-            f"当前各标签平均 F1 约为 {avg_f1}，可作为模型整体分类表现的初步参考。",
-            "不同标签表现差异应结合样本量、类别不平衡和缺失值情况理解。",
-            "若 OPNs-SVM 相比标准 SVM 指标提升，可能说明结构特征对当前表格数据有补充表达能力。",
-            "该分析不代表医学诊断能力，只用于模型验证和科研讨论。",
-            RESEARCH_DISCLAIMER,
-        ]
-    )
+
+    prompt_vars = {
+        "algorithm": model.algorithm,
+        "target_columns": ", ".join(map(display_target_name, model.target_columns)),
+        "feature_count": str(len(model.feature_columns)),
+        "avg_f1": str(avg_f1),
+        "metrics": json.dumps(grouped, ensure_ascii=False),
+    }
+    text = await _call_llm(db, current_user, "model_analysis", prompt_vars)
     return save_ai_report(db, current_user, "model_analysis", text, summary, model_id=model_id)
 
 
-def generate_prediction_explanation(db: Session, current_user: User, prediction_job_id: int) -> AIAnalysisReport:
+async def generate_prediction_explanation(db: Session, current_user: User, prediction_job_id: int) -> AIAnalysisReport:
     job = db.get(PredictionJob, prediction_job_id)
     if job is None or job.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prediction job not found")
@@ -78,23 +172,16 @@ def generate_prediction_explanation(db: Session, current_user: User, prediction_
     results = list(db.scalars(statement).all())
     first_prediction = results[0].prediction_json if results else {}
     summary = {"job_id": job.id, "job_type": job.job_type, "first_prediction": first_prediction}
-    text = "\n".join(
-        [
-            f"预测任务 {job.id} 类型为 {job.job_type}，共生成 {len(results)} 条预测结果。",
-            "单个标签的概率仅表示模型在当前训练数据和特征处理流程下的分类置信度，不等同于临床风险概率。",
-            "如多个标签概率接近，说明模型不确定性较高，应结合数据质量和模型评估结果谨慎解读。",
-            "该说明不包含诊断结论、治疗建议或用药建议。",
-            RESEARCH_DISCLAIMER,
-        ]
-    )
+
+    prompt_vars = {
+        "job_type": job.job_type,
+        "sample_count": str(len(results)),
+        "prediction_summary": json.dumps(first_prediction, ensure_ascii=False),
+    }
+    text = await _call_llm(db, current_user, "prediction_explanation", prompt_vars)
     return save_ai_report(
-        db,
-        current_user,
-        "prediction_explanation",
-        text,
-        summary,
-        model_id=job.model_id,
-        prediction_job_id=job.id,
+        db, current_user, "prediction_explanation", text, summary,
+        model_id=job.model_id, prediction_job_id=job.id,
     )
 
 

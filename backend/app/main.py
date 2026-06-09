@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.ai import router as ai_router
+from app.api.ai_config import router as ai_config_router
 from app.api.auth import router as auth_router
 from app.api.datasets import router as datasets_router
 from app.api.evaluation import router as evaluation_router
@@ -12,12 +13,14 @@ from app.config import get_settings
 from app.database import Base, engine
 from app.db_models import (
     AIAnalysisReport,
+    AIConfig,
     Dataset,
     DatasetColumn,
     MLModel,
     ModelMetric,
     PredictionJob,
     PredictionResult,
+    PromptTemplate,
     Report,
     TrainingRun,
     User,
@@ -27,12 +30,14 @@ from app.db_models import (
 settings = get_settings()
 _ = (
     AIAnalysisReport,
+    AIConfig,
     Dataset,
     DatasetColumn,
     MLModel,
     ModelMetric,
     PredictionJob,
     PredictionResult,
+    PromptTemplate,
     Report,
     TrainingRun,
     User,
@@ -55,6 +60,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(ai_router)
+app.include_router(ai_config_router)
 app.include_router(datasets_router)
 app.include_router(evaluation_router)
 app.include_router(models_router)

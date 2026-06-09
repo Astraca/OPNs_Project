@@ -52,7 +52,15 @@ const navItems: NavItem[] = [
     ],
   },
   { key: "/reports", icon: <BarChartOutlined />, label: "分析报告" },
-  { key: "/settings", icon: <SettingOutlined />, label: "系统设置" },
+  {
+    key: "settings-group",
+    icon: <SettingOutlined />,
+    label: "系统设置",
+    children: [
+      { key: "/settings", label: "账号设置" },
+      { key: "/settings/ai", label: "AI 配置" },
+    ],
+  },
 ];
 
 function collectLeafKeys(items: NavItem[]): string[] {

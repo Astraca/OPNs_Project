@@ -21,6 +21,7 @@ import PredictionHistoryPage from "../pages/prediction/PredictionHistoryPage";
 import RegressionBatchPredictionPage from "../pages/prediction/RegressionBatchPredictionPage";
 import RegressionSinglePredictionPage from "../pages/prediction/RegressionSinglePredictionPage";
 import ReportListPage from "../pages/reports/ReportListPage";
+import AIConfigPage from "../pages/settings/AIConfigPage";
 import SettingsPage from "../pages/settings/SettingsPage";
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
           { path: "ai/report-generator", element: <ReportGeneratorPage /> },
           { path: "reports", element: <ReportListPage /> },
           { path: "settings", element: <SettingsPage /> },
+          { path: "settings/ai", element: <AIConfigPage /> },
         ],
       },
     ],
