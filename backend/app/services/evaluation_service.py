@@ -20,6 +20,7 @@ from sklearn.preprocessing import StandardScaler
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.db_models.dataset import Dataset
 from app.db_models.ml_model import MLModel, ModelMetric
 from app.db_models.user import User
 from app.schemas.evaluation_schema import (
@@ -37,10 +38,14 @@ from app.utils.igan_fields import display_target_name
 
 
 def _get_test_data(
+    db: Session,
     model: MLModel,
 ) -> tuple[pd.DataFrame, pd.DataFrame | pd.Series, pd.DataFrame | pd.Series, pd.DataFrame]:
     """Load dataset and re-split to retrieve the same test fold."""
-    dataframe = read_dataset_file(model)
+    dataset = db.get(Dataset, model.dataset_id)
+    if dataset is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
+    dataframe = read_dataset_file(dataset)
     numeric_features = dataframe[model.feature_columns].apply(pd.to_numeric, errors="coerce")
     y = dataframe[model.target_columns]
     if model.task_type == "regression":
@@ -143,7 +148,7 @@ def build_confusion_matrices(
     if model.task_type not in {"classification", "multi_output_classification"}:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a classification model")
 
-    _, X_test, _, y_test = _get_test_data(model)
+    _, X_test, _, y_test = _get_test_data(db, model)
     transformer, classifiers = _load_model_pipeline(model)
     if not isinstance(classifiers, dict):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unexpected model format")
@@ -178,7 +183,7 @@ def build_roc_curves(
     if model.task_type not in {"classification", "multi_output_classification"}:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a classification model")
 
-    _, X_test, _, y_test = _get_test_data(model)
+    _, X_test, _, y_test = _get_test_data(db, model)
     transformer, classifiers = _load_model_pipeline(model)
     if not isinstance(classifiers, dict):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unexpected model format")
@@ -231,7 +236,7 @@ def build_regression_metrics(
             detail="Model is not a regression model",
         )
 
-    _, X_test, _, y_test = _get_test_data(model)
+    _, X_test, _, y_test = _get_test_data(db, model)
     transformer, regressor = _load_model_pipeline(model)
     X_transformed = transformer.transform(X_test) if transformer is not None else X_test
     predictions = regressor.predict(X_transformed)
@@ -268,7 +273,7 @@ def build_predicted_vs_actual(
     if model.task_type != "regression":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a regression model")
 
-    _, X_test, _, y_test = _get_test_data(model)
+    _, X_test, _, y_test = _get_test_data(db, model)
     transformer, regressor = _load_model_pipeline(model)
     X_transformed = transformer.transform(X_test) if transformer is not None else X_test
     predictions = regressor.predict(X_transformed)
@@ -290,7 +295,7 @@ def build_residuals(
     if model.task_type != "regression":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a regression model")
 
-    _, X_test, _, y_test = _get_test_data(model)
+    _, X_test, _, y_test = _get_test_data(db, model)
     transformer, regressor = _load_model_pipeline(model)
     X_transformed = transformer.transform(X_test) if transformer is not None else X_test
     predictions = regressor.predict(X_transformed)
