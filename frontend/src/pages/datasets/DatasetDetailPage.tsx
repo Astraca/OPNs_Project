@@ -53,11 +53,14 @@ function getDtypeColor(dtype: string): string {
 function formatDataType(dtype: string): string {
   if (!dtype) return "未知";
   const lower = dtype.toLowerCase();
-  if (lower.startsWith("int")) return "整数";
-  if (lower.startsWith("float")) return "小数";
+  // Numeric types (handle int64, int32, Int64, float64, etc.)
+  if (lower.startsWith("int") || lower.startsWith("uint")) return "整数";
+  if (lower.startsWith("float") || lower.startsWith("double")) return "小数";
+  // Text types
   if (lower === "object" || lower === "string" || lower.startsWith("str")) return "文本";
+  // Other types
   if (lower.startsWith("bool")) return "布尔";
-  if (lower.startsWith("datetime")) return "日期";
+  if (lower.startsWith("datetime") || lower.startsWith("timestamp")) return "日期";
   if (lower === "null" || lower === "none") return "NULL";
   return dtype;
 }

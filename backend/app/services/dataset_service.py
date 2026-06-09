@@ -343,11 +343,25 @@ def build_column_summaries(
         total_count = int(len(series))
         # Only compute stats when at least half the values are valid numeric
         has_enough_valid = valid_count >= 1 and (total_count == 0 or valid_count >= total_count * 0.5)
+
+        # Infer effective dtype: if original is object/string but most values
+        # are numeric, report as the detected numeric type
+        dtype_str = str(series.dtype)
+        non_numeric_dtypes = {"object", "string", "str"}
+        if dtype_str.lower() in non_numeric_dtypes and has_enough_valid:
+            # Check if values look like integers or floats
+            dropped = numeric_series.dropna()
+            if len(dropped) > 0:
+                if (dropped == dropped.astype(int)).all():
+                    dtype_str = "int64"
+                else:
+                    dtype_str = "float64"
+
         summaries.append(
             DatasetColumn(
                 dataset_id=dataset_id,
                 column_name=str(column_name),
-                data_type=str(series.dtype),
+                data_type=dtype_str,
                 role=infer_column_role(str(column_name), target_columns),
                 missing_count=int(series.isna().sum()),
                 unique_count=int(series.nunique(dropna=True)),
