@@ -61,10 +61,14 @@ export default function ModelListPage() {
       render: (value: string | null) => displayPairingMethod(value),
     },
     {
-      title: "目标字段", dataIndex: "target_columns", width: 160, ellipsis: true,
-      render: (targets: string[]) => targets.map(displayFieldName).join(", "),
+      title: "目标字段", dataIndex: "target_columns", width: 160,
+      render: (targets: string[]) => (
+        <div style={{ overflowX: "auto", whiteSpace: "nowrap", maxWidth: 144 }}>
+          {targets.map(displayFieldName).join(", ")}
+        </div>
+      ),
     },
-    { title: "特征数", dataIndex: "feature_columns", width: 70, render: (features: string[]) => features.length },
+    { title: "特征数", dataIndex: "feature_columns", width: 100, render: (features: string[]) => features.length },
     {
       title: "操作", key: "actions", width: 180,
       render: (_, record) => (
@@ -87,7 +91,7 @@ export default function ModelListPage() {
           训练模型
         </Button>
       </div>
-      <Table rowKey="id" columns={columns} dataSource={models} loading={loading} scroll={{ x: 870 }} />
+      <Table rowKey="id" columns={columns} dataSource={models} loading={loading} scroll={{ x: 900 }} />
     </main>
   );
 }
