@@ -1,4 +1,5 @@
-import { Alert, Button, Form, Input, InputNumber, Select, Slider, Typography, message } from "antd";
+import { SyncOutlined } from "@ant-design/icons";
+import { Alert, Button, Form, Input, InputNumber, Select, Slider, Space, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -227,12 +228,56 @@ export default function ModelTrainPage() {
           </Form.Item>
         )}
 
-        <Form.Item name="test_size" label="测试集比例" rules={[{ required: true }]}>
-          <Slider min={0.1} max={0.4} step={0.05} marks={{ 0.1: "10%", 0.2: "20%", 0.3: "30%", 0.4: "40%" }} />
+        <Form.Item
+          name="test_size"
+          label="测试集比例"
+          rules={[
+            { required: true },
+            {
+              validator: (_, value) =>
+                value >= 0.1 && value <= 0.4
+                  ? Promise.resolve()
+                  : Promise.reject(new Error("测试集比例需在 0.1 ~ 0.4 之间")),
+            },
+          ]}
+        >
+          <Space.Compact style={{ width: "100%" }}>
+            <Slider
+              min={0.1}
+              max={0.4}
+              step={0.05}
+              marks={{ 0.1: "10%", 0.2: "20%", 0.3: "30%", 0.4: "40%" }}
+              style={{ flex: 1 }}
+              value={form.getFieldValue("test_size") ?? 0.2}
+              onChange={(v) => form.setFieldsValue({ test_size: v })}
+            />
+            <InputNumber
+              min={0.1}
+              max={0.4}
+              step={0.05}
+              style={{ width: 80 }}
+              value={form.getFieldValue("test_size") ?? 0.2}
+              onChange={(v) => {
+                if (v != null) {
+                  if (v < 0.1 || v > 0.4) {
+                    message.warning("测试集比例合法区间为 0.1 ~ 0.4");
+                  }
+                  form.setFieldsValue({ test_size: Math.min(0.4, Math.max(0.1, v)) });
+                }
+              }}
+            />
+          </Space.Compact>
         </Form.Item>
 
         <Form.Item name="random_state" label="随机种子" rules={[{ required: true }]}>
-          <InputNumber min={0} max={999999} />
+          <Space.Compact style={{ width: "100%" }}>
+            <InputNumber min={0} max={999999} style={{ flex: 1 }} />
+            <Button
+              icon={<SyncOutlined />}
+              onClick={() => form.setFieldsValue({ random_state: Math.floor(Math.random() * 100000) })}
+              title="随机生成种子"
+            />
+          </Space.Compact>
         </Form.Item>
 
         <Button type="primary" htmlType="submit" loading={training}>
