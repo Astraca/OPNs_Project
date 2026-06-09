@@ -24,7 +24,7 @@ MODEL_STORAGE_DIR = Path("storage/models")
 
 def train_classification_model(db: Session, current_user: User, payload: ModelTrainRequest) -> MLModel:
     _check_duplicate_model_name(
-        db, current_user, payload.model_name, "classification",
+        db, current_user, payload.model_name, "multi_output_classification",
         payload.algorithm, payload.pairing_method if payload.algorithm.startswith("OPNs") else None,
     )
     dataset = get_dataset(db, current_user, payload.dataset_id)
