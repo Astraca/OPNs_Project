@@ -10,11 +10,11 @@ from sqlalchemy.orm import Session
 from app.db_models.dataset import Dataset, DatasetColumn
 from app.db_models.user import User
 from app.schemas.dataset_schema import DatasetCreateRequest
+from app.utils.igan_fields import get_default_feature_columns, get_output_columns
 
 
 STORAGE_DIR = Path("storage/datasets")
 ALLOWED_SUFFIXES = {".csv", ".xlsx"}
-IGAN_TARGET_COLUMNS = {"M", "E", "S", "T", "C"}
 
 
 def create_dataset(db: Session, current_user: User, payload: DatasetCreateRequest) -> Dataset:
@@ -64,7 +64,7 @@ async def save_upload_file(db: Session, current_user: User, dataset_id: int, fil
     file_path.write_bytes(await file.read())
 
     dataframe = read_dataframe(file_path)
-    target_columns = [column for column in dataframe.columns if column in IGAN_TARGET_COLUMNS]
+    target_columns = get_output_columns([str(column) for column in dataframe.columns])
 
     dataset.file_path = str(file_path)
     dataset.file_type = suffix.lstrip(".")
@@ -135,7 +135,7 @@ def get_label_distribution_chart(db: Session, current_user: User, dataset_id: in
     dataset = get_dataset(db, current_user, dataset_id)
     dataframe = read_dataset_file(dataset)
     distributions: dict[str, dict[str, int]] = {}
-    target_columns = dataset.target_columns or [column for column in dataframe.columns if column in IGAN_TARGET_COLUMNS]
+    target_columns = dataset.target_columns or get_output_columns([str(column) for column in dataframe.columns])
     for target in target_columns:
         if target in dataframe.columns:
             counts = dataframe[target].astype(str).value_counts(dropna=False).to_dict()
@@ -164,7 +164,8 @@ def get_numeric_statistics_chart(db: Session, current_user: User, dataset_id: in
 def get_correlation_matrix_chart(db: Session, current_user: User, dataset_id: int) -> dict[str, Any]:
     dataset = get_dataset(db, current_user, dataset_id)
     dataframe = read_dataset_file(dataset)
-    numeric_dataframe = dataframe.apply(pd.to_numeric, errors="coerce").dropna(axis=1, how="all")
+    feature_columns = get_default_feature_columns([str(column) for column in dataframe.columns], dataset.target_columns)
+    numeric_dataframe = dataframe[feature_columns].apply(pd.to_numeric, errors="coerce").dropna(axis=1, how="all")
     if numeric_dataframe.empty:
         return {"columns": [], "matrix": []}
 

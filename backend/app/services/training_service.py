@@ -19,22 +19,24 @@ from app.db_models.user import User
 from app.ml.opns_transformer import OPNsTransformer
 from app.schemas.model_schema import ModelTrainRequest
 from app.services.dataset_service import get_dataset, read_dataset_file
+from app.utils.igan_fields import get_default_feature_columns, get_mestc_target_columns
 
 
 MODEL_STORAGE_DIR = Path("storage/models")
-DEFAULT_TARGETS = ["M", "E", "S", "T", "C"]
 
 
 def train_classification_model(db: Session, current_user: User, payload: ModelTrainRequest) -> MLModel:
     dataset = get_dataset(db, current_user, payload.dataset_id)
     dataframe = read_dataset_file(dataset)
-    target_columns = [target for target in payload.target_columns if target in dataframe.columns]
+    requested_targets = payload.target_columns or get_mestc_target_columns([str(column) for column in dataframe.columns])
+    target_columns = [target for target in requested_targets if target in dataframe.columns]
     if not target_columns:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No target columns found in dataset")
 
-    feature_columns = payload.feature_columns or [
-        column for column in dataframe.columns if column not in target_columns and column not in DEFAULT_TARGETS
-    ]
+    feature_columns = payload.feature_columns or get_default_feature_columns(
+        [str(column) for column in dataframe.columns],
+        target_columns,
+    )
     numeric_features = dataframe[feature_columns].apply(pd.to_numeric, errors="coerce")
     usable_features = [column for column in numeric_features.columns if not numeric_features[column].isna().all()]
     if len(usable_features) < 2 and payload.algorithm == "OPNs-SVM":

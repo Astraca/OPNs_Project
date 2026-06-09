@@ -49,7 +49,7 @@ export default function ModelTrainPage() {
         className="model-form"
         initialValues={{
           algorithm: "OPNs-SVM",
-          target_columns: ["M", "E", "S", "T", "C"],
+          target_columns: ["out-M", "out-E", "out-S", "out-T", "out-C"],
           pairing_method: "adjacent",
           test_size: 0.2,
           random_state: 42,
@@ -76,7 +76,13 @@ export default function ModelTrainPage() {
           />
         </Form.Item>
         <Form.Item name="target_columns" label="目标字段" rules={[{ required: true }]}>
-          <Select mode="multiple" options={["M", "E", "S", "T", "C"].map((target) => ({ label: target, value: target }))} />
+          <Select
+            mode="multiple"
+            options={["out-M", "out-E", "out-S", "out-T", "out-C"].map((target) => ({
+              label: target,
+              value: target,
+            }))}
+          />
         </Form.Item>
         <Form.Item name="pairing_method" label="OPNs 配对方式" rules={[{ required: true }]}>
           <Select

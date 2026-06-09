@@ -12,6 +12,9 @@ import DatasetProfilePage from "../pages/datasets/DatasetProfilePage";
 import ModelEvaluationPage from "../pages/models/ModelEvaluationPage";
 import ModelListPage from "../pages/models/ModelListPage";
 import ModelTrainPage from "../pages/models/ModelTrainPage";
+import BatchPredictionPage from "../pages/prediction/BatchPredictionPage";
+import IganSinglePredictionPage from "../pages/prediction/IganSinglePredictionPage";
+import PredictionHistoryPage from "../pages/prediction/PredictionHistoryPage";
 import PlaceholderPage from "../pages/PlaceholderPage";
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -36,6 +39,9 @@ export const router = createBrowserRouter([
           { path: "models", element: <ModelListPage /> },
           { path: "models/train", element: <ModelTrainPage /> },
           { path: "models/:id/evaluation", element: <ModelEvaluationPage /> },
+          { path: "prediction/igan/single", element: <IganSinglePredictionPage /> },
+          { path: "prediction/batch", element: <BatchPredictionPage /> },
+          { path: "prediction/history", element: <PredictionHistoryPage /> },
           { path: "reports", element: <PlaceholderPage title="分析报告" /> },
         ],
       },

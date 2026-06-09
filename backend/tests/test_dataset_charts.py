@@ -30,8 +30,8 @@ class DatasetChartServiceTestCase(unittest.TestCase):
             {
                 "age": [20, 30, None, 50],
                 "creatinine": [1.0, 1.2, 1.4, 1.6],
-                "M": ["M0", "M1", "M1", "M0"],
-                "E": ["E0", "E0", "E1", "E0"],
+                "out-M": [0, 1, 1, 0],
+                "out-E": [0, 0, 1, 0],
             }
         )
         self.temp_file = tempfile.NamedTemporaryFile(suffix=".csv", delete=False)
@@ -46,12 +46,12 @@ class DatasetChartServiceTestCase(unittest.TestCase):
             file_type="csv",
             sample_count=4,
             feature_count=4,
-            target_columns=["M", "E"],
+            target_columns=["out-M", "out-E"],
         )
         self.session.add(self.dataset)
         self.session.commit()
         self.session.refresh(self.dataset)
-        self.session.add_all(dataset_service.build_column_summaries(self.dataset.id, frame, ["M", "E"]))
+        self.session.add_all(dataset_service.build_column_summaries(self.dataset.id, frame, ["out-M", "out-E"]))
         self.session.commit()
 
     def tearDown(self) -> None:
@@ -68,8 +68,8 @@ class DatasetChartServiceTestCase(unittest.TestCase):
     def test_label_distribution_chart_returns_igan_targets(self) -> None:
         result = dataset_service.get_label_distribution_chart(self.session, self.user, self.dataset.id)
 
-        self.assertEqual(result["distributions"]["M"], {"M0": 2, "M1": 2})
-        self.assertEqual(result["distributions"]["E"], {"E0": 3, "E1": 1})
+        self.assertEqual(result["distributions"]["out-M"], {"0": 2, "1": 2})
+        self.assertEqual(result["distributions"]["out-E"], {"0": 3, "1": 1})
 
     def test_correlation_matrix_chart_returns_numeric_columns(self) -> None:
         result = dataset_service.get_correlation_matrix_chart(self.session, self.user, self.dataset.id)

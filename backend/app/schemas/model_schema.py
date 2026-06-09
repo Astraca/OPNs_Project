@@ -12,7 +12,7 @@ class ModelTrainRequest(BaseModel):
     dataset_id: int
     model_name: str = Field(min_length=1, max_length=128)
     algorithm: Algorithm = "OPNs-SVM"
-    target_columns: list[str] = Field(default_factory=lambda: ["M", "E", "S", "T", "C"])
+    target_columns: list[str] = Field(default_factory=lambda: ["out-M", "out-E", "out-S", "out-T", "out-C"])
     feature_columns: list[str] | None = None
     pairing_method: PairingMethod = "adjacent"
     test_size: float = Field(default=0.2, gt=0, lt=0.5)

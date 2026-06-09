@@ -4,6 +4,7 @@ import {
   ExperimentOutlined,
   HomeOutlined,
   LogoutOutlined,
+  ThunderboltOutlined,
 } from "@ant-design/icons";
 import { Button, Layout, Menu, Space, Typography } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -18,6 +19,7 @@ const menuItems = [
   { key: "/dashboard", icon: <HomeOutlined />, label: "系统首页" },
   { key: "/datasets", icon: <DatabaseOutlined />, label: "数据集" },
   { key: "/models", icon: <ExperimentOutlined />, label: "模型训练" },
+  { key: "/prediction/igan/single", icon: <ThunderboltOutlined />, label: "预测" },
   { key: "/reports", icon: <BarChartOutlined />, label: "分析报告" },
 ];
 
