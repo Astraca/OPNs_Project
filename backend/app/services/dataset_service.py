@@ -110,7 +110,33 @@ async def save_upload_file(db: Session, current_user: User, dataset_id: int, fil
     dataset.target_columns = target_columns
 
     db.execute(delete(DatasetColumn).where(DatasetColumn.dataset_id == dataset.id))
-    db.add_all(build_column_summaries(dataset.id, dataframe, target_columns))
+    summaries = build_column_summaries(dataset.id, dataframe, target_columns)
+
+    # ── Auto-ignore low-quality features ──────────────────────────────────
+    total_samples = len(dataframe)
+    target_set = set(target_columns)
+    auto_ignored: list[str] = []
+    for col in summaries:
+        # Keep target columns untouched — user must decide
+        if col.column_name in target_set:
+            continue
+        # Ignore features where ALL values are missing
+        if col.missing_count >= total_samples:
+            col.role = "ignored"
+            auto_ignored.append(f"{col.column_name}(全缺失)")
+        # Ignore constant features (only 1 unique value, no variance)
+        elif col.unique_count <= 1:
+            col.role = "ignored"
+            auto_ignored.append(f"{col.column_name}(常量)")
+
+    db.add_all(summaries)
+
+    # Store auto-ignore note in dataset description for user visibility
+    if auto_ignored:
+        note = "【自动忽略低质量特征】" + "、".join(auto_ignored)
+        existing = dataset.description or ""
+        dataset.description = f"{existing}\n{note}".strip() if existing else note
+
     db.commit()
     db.refresh(dataset)
     return dataset

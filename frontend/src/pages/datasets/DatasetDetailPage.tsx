@@ -371,7 +371,9 @@ export default function DatasetDetailPage() {
               : "暂未识别"}
           </Descriptions.Item>
           <Descriptions.Item label="说明" span={2}>
-            {dataset.description ?? "-"}
+            <Typography.Paragraph style={{ whiteSpace: "pre-line", margin: 0 }}>
+              {dataset.description ?? "-"}
+            </Typography.Paragraph>
           </Descriptions.Item>
         </Descriptions>
       )}
