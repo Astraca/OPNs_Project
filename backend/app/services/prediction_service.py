@@ -310,6 +310,38 @@ def save_prediction_job(
     return job
 
 
+def get_prediction_detail(db: Session, current_user: User, job_id: int) -> dict:
+    job = db.get(PredictionJob, job_id)
+    if job is None or job.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prediction job not found")
+
+    statement = (
+        select(PredictionResult)
+        .where(PredictionResult.job_id == job.id)
+        .order_by(PredictionResult.sample_index)
+    )
+    results = list(db.scalars(statement).all())
+
+    return {
+        "id": job.id,
+        "job_type": job.job_type,
+        "status": job.status,
+        "model_id": job.model_id,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+        "sample_count": len(results),
+        "results": [
+            {
+                "sample_index": r.sample_index,
+                "input": r.input_json,
+                "prediction": r.prediction_json,
+            }
+            for r in results
+        ],
+        "disclaimer": RESEARCH_DISCLAIMER,
+    }
+
+
 def download_prediction_result(db: Session, current_user: User, job_id: int) -> FileResponse:
     job = db.get(PredictionJob, job_id)
     if job is None or job.user_id != current_user.id:

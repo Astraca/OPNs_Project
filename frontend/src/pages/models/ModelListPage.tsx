@@ -1,4 +1,4 @@
-import { BarChartOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
+import { BarChartOutlined, DeleteOutlined, EyeOutlined, PlusOutlined } from "@ant-design/icons";
 import { Button, Popconfirm, Space, Table, Tag, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState } from "react";
@@ -68,6 +68,9 @@ export default function ModelListPage() {
       key: "actions",
       render: (_, record) => (
         <Space>
+          <Button icon={<EyeOutlined />} onClick={() => navigate(`/models/${record.id}`)}>
+            详情
+          </Button>
           <Button icon={<BarChartOutlined />} onClick={() => navigate(`/models/${record.id}/evaluation`)}>
             评估
           </Button>

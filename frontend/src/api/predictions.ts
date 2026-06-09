@@ -45,3 +45,8 @@ export async function listPredictionJobs() {
   const { data } = await request.get<PredictionJob[]>("/predictions/history");
   return data;
 }
+
+export async function getPredictionDetail(jobId: number) {
+  const { data } = await request.get<Record<string, unknown>>(`/predictions/${jobId}`);
+  return data;
+}

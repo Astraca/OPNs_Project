@@ -194,6 +194,23 @@ def get_model_metrics(db: Session, current_user: User, model_id: int) -> list[Mo
     return list(db.scalars(statement).all())
 
 
+def get_model_metadata(db: Session, current_user: User, model_id: int) -> dict:
+    model = get_model(db, current_user, model_id)
+    metadata_path = model.metadata_file_path
+    if metadata_path and Path(metadata_path).exists():
+        return json.loads(Path(metadata_path).read_text(encoding="utf-8"))
+    return {
+        "model_id": model.id,
+        "algorithm": model.algorithm,
+        "task_type": model.task_type,
+        "target_columns": model.target_columns,
+        "feature_columns": model.feature_columns,
+        "opns_enabled": model.opns_enabled,
+        "pairing_method": model.pairing_method,
+        "hyperparameters": model.hyperparameters,
+    }
+
+
 def train_regression_model(db: Session, current_user: User, payload: RegressionTrainRequest) -> MLModel:
     dataset = get_dataset(db, current_user, payload.dataset_id)
     dataframe = read_dataset_file(dataset)

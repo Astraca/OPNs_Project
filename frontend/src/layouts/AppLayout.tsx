@@ -4,6 +4,7 @@ import {
   ExperimentOutlined,
   HomeOutlined,
   LogoutOutlined,
+  SettingOutlined,
   ThunderboltOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
@@ -40,6 +41,7 @@ const navItems: NavItem[] = [
     ],
   },
   { key: "/reports", icon: <BarChartOutlined />, label: "分析报告" },
+  { key: "/settings", icon: <SettingOutlined />, label: "系统设置" },
 ];
 
 function collectLeafKeys(items: NavItem[]): string[] {

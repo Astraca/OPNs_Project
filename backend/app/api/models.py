@@ -67,3 +67,12 @@ def get_model_metrics(
     current_user: User = Depends(get_current_user),
 ):
     return training_service.get_model_metrics(db, current_user, model_id)
+
+
+@router.get("/{model_id}/metadata")
+def get_model_metadata(
+    model_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return training_service.get_model_metadata(db, current_user, model_id)

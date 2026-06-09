@@ -73,3 +73,8 @@ export async function getResiduals(modelId: number) {
   const { data } = await request.get<ResidualsData>(`/evaluation/residuals/${modelId}`);
   return data;
 }
+
+export async function getModelMetadata(modelId: number) {
+  const { data } = await request.get<Record<string, unknown>>(`/models/${modelId}/metadata`);
+  return data;
+}

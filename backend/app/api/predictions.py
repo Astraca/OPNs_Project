@@ -75,6 +75,15 @@ def prediction_history(
     return prediction_service.list_prediction_jobs(db, current_user)
 
 
+@router.get("/{prediction_id}")
+def get_prediction_detail(
+    prediction_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return prediction_service.get_prediction_detail(db, current_user, prediction_id)
+
+
 @router.get("/batch/{job_id}/download")
 def download_batch_prediction(
     job_id: int,
