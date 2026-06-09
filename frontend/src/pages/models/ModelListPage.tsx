@@ -47,38 +47,30 @@ export default function ModelListPage() {
   }
 
   const columns: ColumnsType<MLModel> = [
-    { title: "名称", dataIndex: "model_name" },
+    { title: "名称", dataIndex: "model_name", width: 140, ellipsis: true },
     {
-      title: "任务类型",
-      dataIndex: "task_type",
+      title: "任务类型", dataIndex: "task_type", width: 100,
       render: (value: string) => {
         const info = TASK_TYPE_LABELS[value] ?? { label: value, color: "default" };
         return <Tag color={info.color}>{info.label}</Tag>;
       },
     },
-    { title: "算法", dataIndex: "algorithm", render: (value: string) => <Tag color="blue">{value}</Tag> },
+    { title: "算法", dataIndex: "algorithm", width: 100, render: (value: string) => <Tag color="blue">{value}</Tag> },
     {
-      title: "配对方式",
-      dataIndex: "pairing_method",
+      title: "配对方式", dataIndex: "pairing_method", width: 120,
       render: (value: string | null) => displayPairingMethod(value),
     },
     {
-      title: "目标字段",
-      dataIndex: "target_columns",
+      title: "目标字段", dataIndex: "target_columns", width: 160, ellipsis: true,
       render: (targets: string[]) => targets.map(displayFieldName).join(", "),
     },
-    { title: "特征数", dataIndex: "feature_columns", render: (features: string[]) => features.length },
+    { title: "特征数", dataIndex: "feature_columns", width: 70, render: (features: string[]) => features.length },
     {
-      title: "操作",
-      key: "actions",
+      title: "操作", key: "actions", width: 180,
       render: (_, record) => (
         <Space>
-          <Button icon={<EyeOutlined />} onClick={() => navigate(`/models/${record.id}`)}>
-            详情
-          </Button>
-          <Button icon={<BarChartOutlined />} onClick={() => navigate(`/models/${record.id}/evaluation`)}>
-            评估
-          </Button>
+          <Button icon={<EyeOutlined />} onClick={() => navigate(`/models/${record.id}`)}>详情</Button>
+          <Button icon={<BarChartOutlined />} onClick={() => navigate(`/models/${record.id}/evaluation`)}>评估</Button>
           <Popconfirm title="确定删除此模型？" onConfirm={() => handleDelete(record.id)}>
             <Button danger icon={<DeleteOutlined />} />
           </Popconfirm>
@@ -95,7 +87,7 @@ export default function ModelListPage() {
           训练模型
         </Button>
       </div>
-      <Table rowKey="id" columns={columns} dataSource={models} loading={loading} />
+      <Table rowKey="id" columns={columns} dataSource={models} loading={loading} scroll={{ x: 870 }} />
     </main>
   );
 }
