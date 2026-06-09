@@ -15,7 +15,10 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain_password: str, password_hash: str) -> bool:
-    return password_context.verify(plain_password, password_hash)
+    try:
+        return password_context.verify(plain_password, password_hash)
+    except ValueError:
+        return False
 
 
 def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:

@@ -57,9 +57,17 @@ export default function RegisterPage() {
             rules={[
               { required: true, message: "请输入密码" },
               { min: 8, message: "密码至少 8 个字符" },
+              {
+                validator: (_, value?: string) => {
+                  if (!value || new TextEncoder().encode(value).length <= 72) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error("密码不能超过 72 字节"));
+                },
+              },
             ]}
           >
-            <Input.Password prefix={<LockOutlined />} autoComplete="new-password" />
+            <Input.Password prefix={<LockOutlined />} autoComplete="new-password" maxLength={72} />
           </Form.Item>
           <div className="auth-actions">
             <Link to="/login">已有账号</Link>
