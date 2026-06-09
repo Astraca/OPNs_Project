@@ -21,7 +21,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { deleteModel, getModel, getModelMetadata, getModelMetrics } from "../../api/models";
 import type { MLModel, ModelMetric } from "../../types/model";
-import { displayFieldName } from "../../utils/fieldNames";
+import { displayFieldName, displayPairingMethod } from "../../utils/fieldNames";
 import "./ModelPages.css";
 
 
@@ -163,7 +163,7 @@ export default function ModelDetailPage() {
             <Descriptions.Item label="目标字段">
               {model.target_columns.map(displayFieldName).join(", ")}
             </Descriptions.Item>
-            <Descriptions.Item label="配对方式">{model.pairing_method ?? "-"}</Descriptions.Item>
+            <Descriptions.Item label="配对方式">{displayPairingMethod(model.pairing_method)}</Descriptions.Item>
             <Descriptions.Item label="特征数">{model.feature_columns.length}</Descriptions.Item>
             <Descriptions.Item label="数据集 ID">{model.dataset_id}</Descriptions.Item>
             <Descriptions.Item label="模型目录" span={2}>
