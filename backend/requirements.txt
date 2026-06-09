@@ -9,5 +9,5 @@ numpy
 scikit-learn
 joblib
 openpyxl
-passlib[bcrypt]
+bcrypt
 python-jose[cryptography]
