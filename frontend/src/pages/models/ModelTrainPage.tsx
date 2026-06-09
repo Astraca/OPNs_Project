@@ -11,6 +11,10 @@ import "./ModelPages.css";
 
 type TaskMode = "classification" | "regression";
 
+function isOpnsAlgorithm(algo: string | undefined): boolean {
+  return (algo ?? "").startsWith("OPNs");
+}
+
 export default function ModelTrainPage() {
   const navigate = useNavigate();
   const [form] = Form.useForm<ModelTrainPayload | RegressionTrainPayload>();
@@ -18,6 +22,7 @@ export default function ModelTrainPage() {
   const [training, setTraining] = useState(false);
   const [mode, setMode] = useState<TaskMode>("classification");
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState<string>("OPNs-SVM");
 
   useEffect(() => {
     async function loadDatasets() {
@@ -50,8 +55,10 @@ export default function ModelTrainPage() {
 
   function handleModeChange(value: TaskMode) {
     setMode(value);
+    const defaultAlgo = value === "regression" ? "OPNs-SVR" : "OPNs-SVM";
+    setSelectedAlgorithm(defaultAlgo);
     form.resetFields(["algorithm", "target_columns", "target_column"]);
-    // Re-populate from dataset if available
+    form.setFieldsValue({ algorithm: defaultAlgo });
     if (selectedDataset) {
       if (value === "classification" && selectedDataset.target_columns.length > 0) {
         form.setFieldsValue({ target_columns: selectedDataset.target_columns } as Partial<ModelTrainPayload>);
@@ -140,6 +147,7 @@ export default function ModelTrainPage() {
                   { label: "OPNs-SVM", value: "OPNs-SVM" },
                   { label: "标准 SVM", value: "SVM" },
                 ]}
+                onChange={(value) => setSelectedAlgorithm(value)}
               />
             </Form.Item>
             <Form.Item
@@ -168,6 +176,7 @@ export default function ModelTrainPage() {
                   { label: "OPNs-SVR", value: "OPNs-SVR" },
                   { label: "标准 SVR", value: "SVR" },
                 ]}
+                onChange={(value) => setSelectedAlgorithm(value)}
               />
             </Form.Item>
             <Form.Item
@@ -187,15 +196,17 @@ export default function ModelTrainPage() {
           </>
         )}
 
-        <Form.Item name="pairing_method" label="OPNs 配对方式" rules={[{ required: true }]}>
-          <Select
-            options={[
-              { label: "相邻配对", value: "adjacent" },
-              { label: "随机配对", value: "random" },
-              { label: "相关性贪心配对", value: "correlation_greedy" },
-            ]}
-          />
-        </Form.Item>
+        {isOpnsAlgorithm(selectedAlgorithm) && (
+          <Form.Item name="pairing_method" label="OPNs 配对方式" rules={[{ required: true }]}>
+            <Select
+              options={[
+                { label: "相邻配对", value: "adjacent" },
+                { label: "随机配对", value: "random" },
+                { label: "相关性贪心配对", value: "correlation_greedy" },
+              ]}
+            />
+          </Form.Item>
+        )}
 
         <Form.Item name="test_size" label="测试集比例" rules={[{ required: true }]}>
           <InputNumber min={0.1} max={0.4} step={0.05} />

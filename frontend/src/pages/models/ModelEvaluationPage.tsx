@@ -72,13 +72,13 @@ export default function ModelEvaluationPage() {
 
         if (nextModel.task_type === "regression") {
           const [regMetrics, pva, res] = await Promise.all([
-            getRegressionMetrics(modelId),
-            getPredictedVsActual(modelId),
-            getResiduals(modelId),
+            getRegressionMetrics(modelId).catch(() => null),
+            getPredictedVsActual(modelId).catch(() => null),
+            getResiduals(modelId).catch(() => null),
           ]);
-          setRegressionMetric(regMetrics.metrics);
-          setPredictedVsActual(pva);
-          setResiduals(res);
+          if (regMetrics) setRegressionMetric(regMetrics.metrics);
+          if (pva) setPredictedVsActual(pva);
+          if (res) setResiduals(res);
         } else {
           const [cm, roc] = await Promise.all([
             getConfusionMatrices(modelId).catch(() => [] as ConfusionMatrixData[]),
