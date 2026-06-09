@@ -24,6 +24,19 @@ STORAGE_DIR = Path("storage/datasets")
 
 
 def create_dataset(db: Session, current_user: User, payload: DatasetCreateRequest) -> Dataset:
+    # Check for duplicate name under the same user
+    existing = db.scalar(
+        select(Dataset).where(
+            Dataset.user_id == current_user.id,
+            Dataset.name == payload.name,
+        ),
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"数据集名称 '{payload.name}' 已存在，请使用其他名称",
+        )
+
     dataset = Dataset(
         user_id=current_user.id,
         name=payload.name,

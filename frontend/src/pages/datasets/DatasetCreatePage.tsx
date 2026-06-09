@@ -15,8 +15,12 @@ export default function DatasetCreatePage() {
       const dataset = await createDataset(values);
       message.success("数据集已创建，请上传数据文件并确认目标字段");
       navigate(`/datasets/${dataset.id}`);
-    } catch {
-      message.error("创建数据集失败");
+    } catch (err: unknown) {
+      const detail =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      message.error(typeof detail === "string" ? detail : "创建数据集失败");
     }
   }
 
