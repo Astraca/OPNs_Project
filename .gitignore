@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# FastAPI / backend local files
+backend/.env
+backend/opns_medical.db
+backend/storage/datasets/*
+backend/storage/models/*
+backend/storage/predictions/*
+backend/storage/reports/*
+!backend/storage/datasets/.gitkeep
+!backend/storage/models/.gitkeep
+!backend/storage/predictions/.gitkeep
+!backend/storage/reports/.gitkeep
+
+# Node / React
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
