@@ -164,15 +164,19 @@ def _check_duplicate_model_name(
     algorithm: str,
     pairing_method: str | None,
 ) -> None:
-    existing = db.scalar(
-        select(MLModel).where(
-            MLModel.user_id == current_user.id,
-            MLModel.task_type == task_type,
-            MLModel.algorithm == algorithm,
-            MLModel.pairing_method == pairing_method,
-            MLModel.model_name == name,
-        ),
-    )
+    # Build conditions, handling NULL pairing_method correctly
+    conditions = [
+        MLModel.user_id == current_user.id,
+        MLModel.task_type == task_type,
+        MLModel.algorithm == algorithm,
+        MLModel.model_name == name,
+    ]
+    if pairing_method is not None:
+        conditions.append(MLModel.pairing_method == pairing_method)
+    else:
+        conditions.append(MLModel.pairing_method.is_(None))
+
+    existing = db.scalar(select(MLModel).where(*conditions))
     if existing is not None:
         pairing_note = f"（配对方式：{pairing_method}）" if pairing_method else ""
         raise HTTPException(
