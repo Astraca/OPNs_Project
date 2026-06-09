@@ -30,6 +30,97 @@
   border-radius: 8px;
 }
 
+/* ── Column table section ─────────────────────────────────────────────── */
+
+.dataset-columns-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+
+.dataset-columns-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dataset-columns-table {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+}
+
+/* Zebra striping */
+.dataset-columns-table .table-row-even {
+  background: #fafbfc;
+}
+
+.dataset-columns-table .table-row-odd {
+  background: #ffffff;
+}
+
+.dataset-columns-table .table-row-even:hover,
+.dataset-columns-table .table-row-odd:hover {
+  background: #e6f4ff !important;
+}
+
+/* Highlight target rows */
+.dataset-columns-table .ant-table-row[data-row-key] {
+  transition: background 0.15s;
+}
+
+/* Sorter header hover */
+.dataset-columns-table .ant-table-column-sorter {
+  color: #bfbfbf;
+}
+
+.dataset-columns-table .ant-table-column-sorter:hover {
+  color: #1677ff;
+}
+
+/* Virtual table scroll bar styling */
+.dataset-columns-table .ant-table-body {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db #f9fafb;
+}
+
+.dataset-columns-table .ant-table-body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dataset-columns-table .ant-table-body::-webkit-scrollbar-track {
+  background: #f9fafb;
+}
+
+.dataset-columns-table .ant-table-body::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.dataset-columns-table .ant-table-body::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Cell padding for readability */
+.dataset-columns-table .ant-table-cell {
+  padding: 6px 12px !important;
+}
+
+/* Fixed left column shadow */
+.dataset-columns-table .ant-table-cell-fix-left-last::after {
+  box-shadow: inset 6px 0 6px -4px rgba(0, 0, 0, 0.08);
+}
+
 .dataset-role-actions {
   display: flex;
   flex-wrap: wrap;
