@@ -13,6 +13,8 @@ import ModelDetailPage from "../pages/models/ModelDetailPage";
 import ModelEvaluationPage from "../pages/models/ModelEvaluationPage";
 import ModelListPage from "../pages/models/ModelListPage";
 import ModelTrainPage from "../pages/models/ModelTrainPage";
+import AIAnalysisPage from "../pages/ai/AIAnalysisPage";
+import ReportGeneratorPage from "../pages/ai/ReportGeneratorPage";
 import BatchPredictionPage from "../pages/prediction/BatchPredictionPage";
 import IganSinglePredictionPage from "../pages/prediction/IganSinglePredictionPage";
 import PredictionHistoryPage from "../pages/prediction/PredictionHistoryPage";
@@ -49,6 +51,9 @@ export const router = createBrowserRouter([
           { path: "prediction/regression/single", element: <RegressionSinglePredictionPage /> },
           { path: "prediction/regression/batch", element: <RegressionBatchPredictionPage /> },
           { path: "prediction/history", element: <PredictionHistoryPage /> },
+          { path: "ai/dataset-analysis", element: <AIAnalysisPage /> },
+          { path: "ai/model-analysis", element: <AIAnalysisPage /> },
+          { path: "ai/report-generator", element: <ReportGeneratorPage /> },
           { path: "reports", element: <ReportListPage /> },
           { path: "settings", element: <SettingsPage /> },
         ],

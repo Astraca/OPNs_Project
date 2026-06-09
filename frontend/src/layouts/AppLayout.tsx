@@ -1,5 +1,6 @@
 import {
   BarChartOutlined,
+  BulbOutlined,
   DatabaseOutlined,
   ExperimentOutlined,
   HomeOutlined,
@@ -38,6 +39,16 @@ const navItems: NavItem[] = [
       { key: "/prediction/regression/single", label: "回归单样本" },
       { key: "/prediction/regression/batch", label: "回归批量" },
       { key: "/prediction/history", label: "预测历史" },
+    ],
+  },
+  {
+    key: "ai-group",
+    icon: <BulbOutlined />,
+    label: "AI 分析",
+    children: [
+      { key: "/ai/dataset-analysis", label: "数据集分析" },
+      { key: "/ai/model-analysis", label: "模型分析" },
+      { key: "/ai/report-generator", label: "报告生成" },
     ],
   },
   { key: "/reports", icon: <BarChartOutlined />, label: "分析报告" },
