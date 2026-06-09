@@ -278,14 +278,11 @@ export default function ModelTrainPage() {
           <TestSizeInput />
         </Form.Item>
 
-        <Form.Item
-          name="random_state"
-          label="随机种子"
-          rules={[{ required: true }]}
-          initialValue={42}
-        >
+        <Form.Item label="随机种子" style={{ marginBottom: 0 }}>
           <Space.Compact>
-            <InputNumber min={0} max={999999} style={{ width: 120 }} />
+            <Form.Item name="random_state" rules={[{ required: true }]} initialValue={42} noStyle>
+              <InputNumber min={0} max={999999} style={{ width: 120 }} />
+            </Form.Item>
             <Button
               icon={<SyncOutlined />}
               onClick={() => form.setFieldsValue({ random_state: Math.floor(Math.random() * 100000) })}
