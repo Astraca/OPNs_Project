@@ -74,7 +74,7 @@ export default function RegressionSinglePredictionPage() {
           </Row>
         )}
         <Space>
-          <Button type="primary" htmlType="submit" loading={loading}>开始预测</Button>
+          <Button type="primary" htmlType="submit" loading={loading} disabled={!selectedModelId}>开始预测</Button>
           <Button onClick={() => { form.resetFields(); setResult(null); }}>清空</Button>
         </Space>
       </Form>

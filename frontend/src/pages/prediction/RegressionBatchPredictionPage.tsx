@@ -80,7 +80,7 @@ export default function RegressionBatchPredictionPage() {
           <div style={{ padding: 16, background: "#f6ffed", borderRadius: 8, border: "1px solid #b7eb8f" }}>
             <Space>
               <Tag color="green">{pendingFile.name}</Tag>
-              <Button type="primary" loading={predicting} onClick={handleStartPredict}>开始预测</Button>
+              <Button type="primary" loading={predicting} onClick={handleStartPredict} disabled={!pendingFile}>开始预测</Button>
               <Upload {...uploadProps}><Button>重新选择文件</Button></Upload>
             </Space>
           </div>
