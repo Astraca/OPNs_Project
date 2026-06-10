@@ -157,7 +157,7 @@ export default function ModelTrainPage() {
         )}
 
         <Form.Item name="model_name" label="模型名称" rules={[{ required: true, message: "请输入模型名称" }]}>
-          <Input maxLength={128} />
+          <Input maxLength={128} placeholder="例如：IgAN-OPNs-SVM-实验1" />
         </Form.Item>
 
         {isClassification && (
