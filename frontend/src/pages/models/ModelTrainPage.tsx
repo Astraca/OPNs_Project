@@ -94,16 +94,9 @@ export default function ModelTrainPage() {
     setMode(value);
     const algo = defaultAlgorithm(value);
     setSelectedAlgorithm(algo);
-    form.resetFields(["dataset_id", "algorithm", "target_columns", "target_column", "pairing_method"]);
     setSelectedDatasetId(null);
+    form.resetFields(["dataset_id", "algorithm", "target_columns", "target_column", "pairing_method"]);
     form.setFieldsValue({ algorithm: algo, pairing_method: "adjacent" });
-    if (selectedDataset?.target_columns.length) {
-      if (value === "regression") {
-        form.setFieldsValue({ target_column: selectedDataset.target_columns[0] } as Partial<RegressionTrainPayload>);
-      } else {
-        form.setFieldsValue({ target_columns: selectedDataset.target_columns } as Partial<ModelTrainPayload>);
-      }
-    }
   }
 
   const isClassification = mode === "multi_output_classification" || mode === "classification";
