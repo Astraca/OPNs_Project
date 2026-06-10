@@ -38,8 +38,9 @@ class AIConfigSecurityTestCase(unittest.TestCase):
 
         serialized = cfg_to_dict(config)
 
+        self.assertNotIn("api_key", serialized)
         self.assertNotIn("api_key_full", serialized)
-        self.assertEqual(serialized["api_key"], "sk-secre***")
+        self.assertTrue(serialized["has_api_key"])
 
     def test_update_with_blank_api_key_keeps_existing_secret(self) -> None:
         config = ai_config_service.create_ai_config(
@@ -77,6 +78,38 @@ class AIConfigSecurityTestCase(unittest.TestCase):
                     "model_name": "custom-model",
                 },
             )
+
+    def test_only_one_ai_config_can_be_default(self) -> None:
+        first = ai_config_service.create_ai_config(
+            self.session,
+            self.user,
+            {
+                "name": "First",
+                "provider": "openai",
+                "api_base": "https://api.openai.com/v1",
+                "api_key": "sk-first",
+                "model_name": "gpt-4o",
+                "is_active": True,
+            },
+        )
+        second = ai_config_service.create_ai_config(
+            self.session,
+            self.user,
+            {
+                "name": "Second",
+                "provider": "deepseek",
+                "api_base": "https://api.deepseek.com/v1",
+                "api_key": "sk-second",
+                "model_name": "deepseek-chat",
+            },
+        )
+
+        ai_config_service.update_ai_config(self.session, self.user, second.id, {"is_active": True})
+        self.session.refresh(first)
+        self.session.refresh(second)
+
+        self.assertFalse(first.is_active)
+        self.assertTrue(second.is_active)
 
 
 if __name__ == "__main__":

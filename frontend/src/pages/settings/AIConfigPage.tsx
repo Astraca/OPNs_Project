@@ -2,8 +2,6 @@ import {
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
-  StarFilled,
-  StarOutlined,
 } from "@ant-design/icons";
 import {
   Button,
@@ -39,7 +37,7 @@ type AIConfigItem = {
   name: string;
   provider: string;
   api_base: string;
-  api_key: string;
+  has_api_key: boolean;
   model_name: string;
   is_active: boolean;
 };
@@ -75,6 +73,7 @@ export default function AIConfigPage() {
   const [editingConfig, setEditingConfig] = useState<AIConfigItem | null>(null);
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
+  const [activeSavingId, setActiveSavingId] = useState<number | null>(null);
 
   // Template modal
   const [tmplModalOpen, setTmplModalOpen] = useState(false);
@@ -103,7 +102,6 @@ export default function AIConfigPage() {
   function openCreate() {
     setEditingConfig(null);
     form.resetFields();
-    form.setFieldsValue({ is_active: configs.length === 0 });
     setModalOpen(true);
   }
 
@@ -115,7 +113,6 @@ export default function AIConfigPage() {
       api_base: cfg.api_base,
       api_key: "",
       model_name: cfg.model_name,
-      is_active: cfg.is_active,
     });
     setModalOpen(true);
   }
@@ -163,12 +160,15 @@ export default function AIConfigPage() {
     }
   }
 
-  async function handleSetActive(id: number) {
+  async function handleSetActive(id: number, checked: boolean) {
+    setActiveSavingId(id);
     try {
-      await request.put(`/ai-config/configs/${id}`, { is_active: true });
+      await request.put(`/ai-config/configs/${id}`, { is_active: checked });
       await loadData();
     } catch {
       message.error("设置失败");
+    } finally {
+      setActiveSavingId(null);
     }
   }
 
@@ -219,18 +219,21 @@ export default function AIConfigPage() {
       render: (v: string) => <Tag color="blue">{v}</Tag>,
     },
     { title: "模型", dataIndex: "model_name", ellipsis: true },
-    { title: "API Key", dataIndex: "api_key", ellipsis: true },
     {
-      title: "状态",
+      title: "API Key",
+      dataIndex: "has_api_key",
+      render: (v: boolean) => <Tag color={v ? "green" : "default"}>{v ? "已保存" : "未设置"}</Tag>,
+    },
+    {
+      title: "默认",
       dataIndex: "is_active",
-      render: (v: boolean, record) =>
-        v ? (
-          <Tag color="green" icon={<StarFilled />}>启用中</Tag>
-        ) : (
-          <Button size="small" icon={<StarOutlined />} onClick={() => handleSetActive(record.id)}>
-            启用
-          </Button>
-        ),
+      render: (v: boolean, record) => (
+        <Switch
+          checked={v}
+          loading={activeSavingId === record.id}
+          onChange={(checked) => handleSetActive(record.id, checked)}
+        />
+      ),
     },
     {
       title: "操作",
@@ -344,9 +347,6 @@ export default function AIConfigPage() {
           </Form.Item>
           <Form.Item name="model_name" label="模型名称" rules={[{ required: true }]}>
             <Input placeholder="deepseek-chat" />
-          </Form.Item>
-          <Form.Item name="is_active" label="设为默认" valuePropName="checked">
-            <Switch />
           </Form.Item>
         </Form>
       </Modal>
