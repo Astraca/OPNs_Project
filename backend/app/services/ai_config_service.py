@@ -65,7 +65,7 @@ def create_ai_config(db: Session, current_user: User, payload: dict) -> AIConfig
     api_key = str(payload.get("api_key", "")).strip()
     if not api_key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="API key is required")
-    _check_duplicate_model_name(db, current_user, str(payload["model_name"]))
+    _check_duplicate_config_name(db, current_user, str(payload["name"]))
     is_active = bool(payload.get("is_active", False))
     # Deactivate other configs if this one is active
     if is_active:
@@ -91,8 +91,8 @@ def create_ai_config(db: Session, current_user: User, payload: dict) -> AIConfig
 
 def update_ai_config(db: Session, current_user: User, config_id: int, payload: dict) -> AIConfig:
     config = _get_ai_config(db, current_user, config_id)
-    if "model_name" in payload:
-        _check_duplicate_model_name(db, current_user, str(payload["model_name"]), exclude_id=config.id)
+    if "name" in payload:
+        _check_duplicate_config_name(db, current_user, str(payload["name"]), exclude_id=config.id)
     if payload.get("is_active"):
         db.execute(
             update(AIConfig)
@@ -170,22 +170,22 @@ def _extract_ai_error_message(response: httpx.Response) -> str:
     return response.reason_phrase or "Unknown error"
 
 
-def _check_duplicate_model_name(
+def _check_duplicate_config_name(
     db: Session,
     current_user: User,
-    model_name: str,
+    name: str,
     exclude_id: int | None = None,
 ) -> None:
     statement = select(AIConfig).where(
         AIConfig.user_id == current_user.id,
-        AIConfig.model_name == model_name,
+        AIConfig.name == name,
     )
     if exclude_id is not None:
         statement = statement.where(AIConfig.id != exclude_id)
     if db.scalar(statement) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"模型名称 '{model_name}' 已存在，请使用其他模型名称",
+            detail=f"配置名称 '{name}' 已存在，请使用其他配置名称",
         )
 
 

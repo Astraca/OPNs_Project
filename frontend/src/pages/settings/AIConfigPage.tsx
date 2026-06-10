@@ -1,4 +1,5 @@
 import {
+  AndroidOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   DeleteOutlined,
@@ -180,7 +181,7 @@ export default function AIConfigPage() {
 
   async function handleSetActive(id: number, checked: boolean) {
     if (checked && testStatus[id] !== "success") {
-      message.warning("请先测试配置，测试成功后才能设为默认");
+      message.info("需要验证模型有效性");
       return;
     }
     setActiveSavingId(id);
@@ -281,7 +282,6 @@ export default function AIConfigPage() {
       render: (v: boolean, record) => (
         <Switch
           checked={v}
-          disabled={!v && testStatus[record.id] !== "success"}
           loading={activeSavingId === record.id}
           onChange={(checked) => handleSetActive(record.id, checked)}
         />
@@ -293,20 +293,20 @@ export default function AIConfigPage() {
         <Space>
           <Button
             size="small"
-            style={{ width: 72 }}
+            style={{ width: 88 }}
             icon={
               testStatus[record.id] === "success" ? (
                 <CheckCircleOutlined style={{ color: "#52c41a" }} />
               ) : testStatus[record.id] === "error" ? (
                 <CloseCircleOutlined style={{ color: "#ff4d4f" }} />
               ) : (
-                <CheckCircleOutlined style={{ color: "#8c8c8c" }} />
+                <AndroidOutlined style={{ color: "#8c8c8c" }} />
               )
             }
             loading={testingId === record.id}
             onClick={() => handleTestConfig(record.id)}
           >
-            测试
+            {testStatus[record.id] ? "测试" : "待测试"}
           </Button>
           <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
           <Popconfirm title="确定删除？" onConfirm={() => handleDelete(record.id)}>
@@ -403,6 +403,7 @@ export default function AIConfigPage() {
           </Form.Item>
           <Form.Item name="provider" label="提供商" rules={[{ required: true }]}>
             <Select
+              placeholder="请选择模型提供商"
               onChange={fillProvider}
               options={[
                 ...Object.entries(providers).map(([k, v]) => ({ label: v.name, value: k })),
