@@ -14,7 +14,7 @@ from app.db_models.prediction import PredictionJob, PredictionResult
 from app.db_models.user import User
 from app.schemas.prediction_schema import RESEARCH_DISCLAIMER
 from app.services.ai_config_service import get_active_config, get_prompt_template_for_type
-from app.services.dataset_service import get_missing_values_chart, get_profile
+from app.services.dataset_service import get_dataset, get_dataset_columns, get_missing_values_chart, get_profile
 from app.services.training_service import get_model
 from app.utils.igan_fields import display_target_name
 
@@ -122,6 +122,42 @@ def _feature_preview(feature_columns: list[str], limit: int = 30) -> dict[str, A
     }
 
 
+def _column_role_recommendation(column: Any, total_rows: int, target_columns: set[str]) -> dict[str, Any]:
+    name = column.column_name
+    lower_name = name.lower()
+    identifier_markers = ["name", "姓名", "住院号", "编号", "患者id", "病历号", "record_id", "patient_id"]
+    is_identifier = (
+        lower_name in {"id", "uuid"}
+        or lower_name.endswith("_id")
+        or lower_name.endswith("-id")
+        or any(marker in lower_name for marker in identifier_markers)
+    )
+    if name in target_columns:
+        role = "target"
+        reason = "该字段已被识别为目标字段"
+    elif is_identifier:
+        role = "ignored"
+        reason = "疑似身份标识或编号字段，不应作为预测特征"
+    elif column.missing_count >= total_rows:
+        role = "ignored"
+        reason = "字段全缺失"
+    elif column.unique_count <= 1:
+        role = "ignored"
+        reason = "字段为常量或近似常量"
+    elif (column.missing_count / total_rows >= 0.5) if total_rows else False:
+        role = "ignored"
+        reason = "缺失率较高，建模前建议谨慎使用"
+    else:
+        role = "feature"
+        reason = "可作为候选预测特征"
+    return {
+        "column_name": name,
+        "current_role": column.role,
+        "recommended_role": role,
+        "reason": reason,
+    }
+
+
 def _metric_summary(metrics: list[ModelMetric]) -> dict[str, dict[str, float]]:
     grouped: dict[str, dict[str, float]] = {}
     for metric in metrics:
@@ -222,6 +258,113 @@ async def generate_dataset_analysis(db: Session, current_user: User, dataset_id:
     }
     text = await _call_llm(db, current_user, "dataset_analysis", prompt_vars)
     return save_ai_report(db, current_user, "dataset_analysis", text, summary, dataset_id=dataset_id)
+
+
+async def generate_dataset_role_suggestions(db: Session, current_user: User, dataset_id: int) -> AIAnalysisReport:
+    dataset = get_dataset(db, current_user, dataset_id)
+    columns = get_dataset_columns(db, current_user, dataset_id)
+    total_rows = dataset.sample_count or 0
+    target_set = set(dataset.target_columns)
+    column_summary = [
+        {
+            "column_name": column.column_name,
+            "data_type": column.data_type,
+            "current_role": column.role,
+            "missing_count": column.missing_count,
+            "missing_rate": round(column.missing_count / total_rows, 4) if total_rows else None,
+            "unique_count": column.unique_count,
+            "mean": column.mean,
+            "std": column.std,
+            "min_value": column.min_value,
+            "max_value": column.max_value,
+        }
+        for column in columns
+    ]
+    recommendations = [
+        _column_role_recommendation(column, total_rows, target_set)
+        for column in columns
+    ]
+    summary = {
+        "dataset_name": dataset.name,
+        "task_type": dataset.task_type,
+        "sample_count": dataset.sample_count,
+        "feature_count": dataset.feature_count,
+        "target_columns": dataset.target_columns,
+        "column_summary": column_summary,
+        "rule_based_recommendations": recommendations,
+        "submitted_to_ai": [
+            "字段名称、类型、当前角色",
+            "缺失数/缺失率、唯一值数量、基础数值统计",
+            "自动规则建议",
+            "不上传原始逐行数据",
+        ],
+    }
+    prompt_vars = {
+        "task_type": dataset.task_type,
+        "target_columns": ", ".join(map(display_target_name, dataset.target_columns)) or "暂未识别",
+        "column_summary": _json_for_prompt({
+            "columns": column_summary,
+            "rule_based_recommendations": recommendations,
+        }),
+    }
+    text = await _call_llm(db, current_user, "dataset_role_suggestions", prompt_vars)
+    return save_ai_report(
+        db,
+        current_user,
+        "dataset_role_suggestions",
+        text,
+        summary,
+        dataset_id=dataset_id,
+    )
+
+
+async def generate_training_suggestions(db: Session, current_user: User, dataset_id: int) -> AIAnalysisReport:
+    dataset = get_dataset(db, current_user, dataset_id)
+    columns = get_dataset_columns(db, current_user, dataset_id)
+    total_rows = dataset.sample_count or 0
+    role_counts = {
+        "feature": sum(1 for column in columns if column.role == "feature"),
+        "target": sum(1 for column in columns if column.role == "target"),
+        "ignored": sum(1 for column in columns if column.role == "ignored"),
+    }
+    high_missing = [
+        {
+            "column_name": column.column_name,
+            "role": column.role,
+            "missing_rate": round(column.missing_count / total_rows, 4) if total_rows else None,
+        }
+        for column in columns
+        if total_rows and column.missing_count / total_rows >= 0.1
+    ][:10]
+    suggested = {
+        "algorithm": "OPNs-SVR" if dataset.task_type == "regression" else "OPNs-SVM",
+        "test_size": 0.2 if (dataset.sample_count or 0) >= 50 else 0.3,
+        "pairing_method": "correlation_greedy" if role_counts["feature"] >= 6 else "adjacent",
+        "notes": [
+            "样本量较小时建议关注交叉验证或重复划分稳定性",
+            "目标字段应在训练前确认，编号/身份标识字段应忽略",
+        ],
+    }
+    summary = {
+        "dataset_name": dataset.name,
+        "task_type": dataset.task_type,
+        "sample_count": dataset.sample_count,
+        "feature_count": dataset.feature_count,
+        "target_columns": dataset.target_columns,
+        "role_counts": role_counts,
+        "high_missing_columns": high_missing,
+        "rule_based_suggestion": suggested,
+    }
+    prompt_vars = {"dataset_context": _json_for_prompt(summary)}
+    text = await _call_llm(db, current_user, "training_suggestions", prompt_vars)
+    return save_ai_report(
+        db,
+        current_user,
+        "training_suggestions",
+        text,
+        summary,
+        dataset_id=dataset_id,
+    )
 
 
 async def generate_model_analysis(db: Session, current_user: User, model_id: int) -> AIAnalysisReport:

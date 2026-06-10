@@ -1,12 +1,15 @@
-import { SyncOutlined } from "@ant-design/icons";
-import { Alert, Button, Form, Input, InputNumber, Select, Slider, Space, Typography, message } from "antd";
+import { BulbOutlined, SyncOutlined } from "@ant-design/icons";
+import { Alert, Button, Form, Input, InputNumber, Modal, Select, Slider, Space, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { listDatasets } from "../../api/datasets";
+import { generateTrainingSuggestions } from "../../api/ai";
 import { trainModel, trainRegressionModel } from "../../api/models";
 import type { Dataset } from "../../types/dataset";
+import type { AIAnalysisReport } from "../../types/ai";
 import type { ModelAlgorithm, ModelTrainPayload, RegressionTrainPayload } from "../../types/model";
+import AIReportPanel from "../ai/AIReportPanel";
 import "./ModelPages.css";
 
 
@@ -60,6 +63,9 @@ export default function ModelTrainPage() {
   const [mode, setMode] = useState<TaskMode>("multi_output_classification");
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
   const [selectedAlgorithm, setSelectedAlgorithm] = useState<ModelAlgorithm>("OPNs-SVM");
+  const [aiSuggesting, setAiSuggesting] = useState(false);
+  const [aiReport, setAiReport] = useState<AIAnalysisReport | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   const datasets = useMemo(
     () => allDatasets.filter((d) => d.file_path && d.task_type === mode),
@@ -122,6 +128,26 @@ export default function ModelTrainPage() {
     } finally { setTraining(false); }
   }
 
+  async function handleTrainingSuggestion() {
+    if (!selectedDatasetId) {
+      message.warning("请先选择数据集");
+      return;
+    }
+    setAiSuggesting(true);
+    try {
+      const report = await generateTrainingSuggestions(selectedDatasetId);
+      setAiReport(report);
+      setAiModalOpen(true);
+      message.success("AI 训练建议已生成");
+    } catch (err: unknown) {
+      const detail = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail : undefined;
+      message.error(typeof detail === "string" ? detail : "AI 训练建议生成失败");
+    } finally {
+      setAiSuggesting(false);
+    }
+  }
+
   return (
     <main>
       <Typography.Title level={3}>训练模型</Typography.Title>
@@ -154,6 +180,17 @@ export default function ModelTrainPage() {
             style={{ marginBottom: 16 }}
           />
         )}
+
+        <Form.Item>
+          <Button
+            icon={<BulbOutlined />}
+            loading={aiSuggesting}
+            disabled={!selectedDatasetId}
+            onClick={handleTrainingSuggestion}
+          >
+            AI 训练建议
+          </Button>
+        </Form.Item>
 
         <Form.Item name="model_name" label="模型名称" rules={[{ required: true, message: "请输入模型名称" }]}>
           <Input maxLength={128} placeholder="请输入模型名称" />
@@ -229,6 +266,15 @@ export default function ModelTrainPage() {
 
         <Button type="primary" htmlType="submit" loading={training}>开始训练</Button>
       </Form>
+      <Modal
+        title="AI 训练建议"
+        open={aiModalOpen}
+        onCancel={() => setAiModalOpen(false)}
+        footer={null}
+        width={760}
+      >
+        <AIReportPanel report={aiReport} />
+      </Modal>
     </main>
   );
 }

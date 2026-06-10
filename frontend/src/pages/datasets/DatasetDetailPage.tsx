@@ -1,5 +1,6 @@
 import {
   BarChartOutlined,
+  BulbOutlined,
   EditOutlined,
   InboxOutlined,
   SwapOutlined,
@@ -36,7 +37,10 @@ import {
   updateDatasetColumnRoles,
   uploadDatasetFile,
 } from "../../api/datasets";
+import { generateDatasetRoleSuggestions } from "../../api/ai";
 import type { Dataset, DatasetColumn, DatasetColumnRole, DatasetCreatePayload } from "../../types/dataset";
+import type { AIAnalysisReport } from "../../types/ai";
+import AIReportPanel from "../ai/AIReportPanel";
 import { displayFieldName } from "../../utils/fieldNames";
 import "./DatasetPages.css";
 
@@ -83,6 +87,9 @@ export default function DatasetDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editForm] = Form.useForm<DatasetCreatePayload>();
   const [showIgnored, setShowIgnored] = useState(false);
+  const [aiSuggesting, setAiSuggesting] = useState(false);
+  const [aiReport, setAiReport] = useState<AIAnalysisReport | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   const loadDataset = useCallback(async () => {
     setLoading(true);
@@ -183,6 +190,24 @@ export default function DatasetDetailPage() {
       description: dataset.description ?? "",
     });
     setEditOpen(true);
+  }
+
+  async function handleGenerateRoleSuggestions() {
+    setAiSuggesting(true);
+    try {
+      const report = await generateDatasetRoleSuggestions(datasetId);
+      setAiReport(report);
+      setAiModalOpen(true);
+      message.success("AI 字段建议已生成");
+    } catch (err: unknown) {
+      const detail =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      message.error(typeof detail === "string" ? detail : "AI 字段建议生成失败");
+    } finally {
+      setAiSuggesting(false);
+    }
   }
 
   const roleCounts = useMemo(() => {
@@ -533,6 +558,14 @@ export default function DatasetDetailPage() {
                 unCheckedChildren="隐藏忽略"
               />
               <Button
+                icon={<BulbOutlined />}
+                loading={aiSuggesting}
+                disabled={!dataset?.file_path}
+                onClick={handleGenerateRoleSuggestions}
+              >
+                AI 字段建议
+              </Button>
+              <Button
                 type="primary"
                 onClick={handleSaveRoles}
                 loading={savingRoles}
@@ -561,6 +594,16 @@ export default function DatasetDetailPage() {
       )}
 
       {/* Edit dataset info modal */}
+      <Modal
+        title="AI 字段角色建议"
+        open={aiModalOpen}
+        onCancel={() => setAiModalOpen(false)}
+        footer={null}
+        width={760}
+      >
+        <AIReportPanel report={aiReport} />
+      </Modal>
+
       <Modal
         title="编辑数据集信息"
         open={editOpen}

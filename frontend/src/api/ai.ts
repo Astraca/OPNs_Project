@@ -7,6 +7,16 @@ export async function generateDatasetAnalysis(datasetId: number) {
   return data;
 }
 
+export async function generateDatasetRoleSuggestions(datasetId: number) {
+  const { data } = await request.post<AIAnalysisReport>(`/ai/dataset-role-suggestions/${datasetId}`);
+  return data;
+}
+
+export async function generateTrainingSuggestions(datasetId: number) {
+  const { data } = await request.post<AIAnalysisReport>(`/ai/training-suggestions/${datasetId}`);
+  return data;
+}
+
 export async function generateModelAnalysis(modelId: number) {
   const { data } = await request.post<AIAnalysisReport>(`/ai/model-analysis/${modelId}`);
   return data;

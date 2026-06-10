@@ -1,4 +1,5 @@
 import {
+  CheckCircleOutlined,
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
@@ -54,6 +55,8 @@ const TEMPLATE_TYPE_LABELS: Record<string, string> = {
   dataset_analysis: "数据集分析",
   model_analysis: "模型分析",
   prediction_explanation: "预测说明",
+  dataset_role_suggestions: "字段角色建议",
+  training_suggestions: "训练参数建议",
 };
 
 const TEMPLATE_TYPE_HELP: Record<string, string> = {
@@ -63,6 +66,10 @@ const TEMPLATE_TYPE_HELP: Record<string, string> = {
     "提交给 AI：模型名称、任务类型、算法、目标字段、特征摘要、超参数、核心指标、混淆矩阵/ROC AUC/残差摘要等结构化数值。不提交图像或模型文件。可用变量：{model_name}, {task_type}, {algorithm}, {target_columns}, {feature_count}, {feature_columns}, {hyperparameters}, {opns_enabled}, {pairing_method}, {avg_f1}, {metrics}, {evaluation_context}, {model_context}。",
   prediction_explanation:
     "提交给 AI：预测任务类型、样本数量、首条预测结果摘要。可用变量：{job_type}, {sample_count}, {prediction_summary}。",
+  dataset_role_suggestions:
+    "提交给 AI：字段名称、类型、当前角色、缺失率、唯一值数量、基础统计和规则建议。可用变量：{task_type}, {target_columns}, {column_summary}。",
+  training_suggestions:
+    "提交给 AI：数据集任务类型、样本量、字段角色统计、目标字段、高缺失字段和规则训练建议。可用变量：{dataset_context}。",
 };
 
 export default function AIConfigPage() {
@@ -74,6 +81,7 @@ export default function AIConfigPage() {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
   const [activeSavingId, setActiveSavingId] = useState<number | null>(null);
+  const [testingId, setTestingId] = useState<number | null>(null);
 
   // Template modal
   const [tmplModalOpen, setTmplModalOpen] = useState(false);
@@ -172,6 +180,22 @@ export default function AIConfigPage() {
     }
   }
 
+  async function handleTestConfig(id: number) {
+    setTestingId(id);
+    try {
+      const { data } = await request.post<{ ok: boolean; message: string }>(`/ai-config/configs/${id}/test`);
+      message.success(data.message || "AI 配置测试成功");
+    } catch (err: unknown) {
+      const detail =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      message.error(typeof detail === "string" ? detail : "AI 配置测试失败");
+    } finally {
+      setTestingId(null);
+    }
+  }
+
   // Template handlers
   function openTmplCreate() {
     setEditingTmpl(null);
@@ -239,6 +263,14 @@ export default function AIConfigPage() {
       title: "操作",
       render: (_, record) => (
         <Space>
+          <Button
+            size="small"
+            icon={<CheckCircleOutlined />}
+            loading={testingId === record.id}
+            onClick={() => handleTestConfig(record.id)}
+          >
+            测试
+          </Button>
           <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
           <Popconfirm title="确定删除？" onConfirm={() => handleDelete(record.id)}>
             <Button size="small" danger icon={<DeleteOutlined />} />

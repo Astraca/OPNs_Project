@@ -46,6 +46,15 @@ def update_config(
     return cfg_to_dict(ai_config_service.update_ai_config(db, current_user, config_id, payload))
 
 
+@router.post("/configs/{config_id}/test")
+async def test_config(
+    config_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    return await ai_config_service.test_ai_config(db, current_user, config_id)
+
+
 @router.delete("/configs/{config_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_config(
     config_id: int,

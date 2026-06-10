@@ -2,6 +2,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from fastapi import HTTPException, status
+import httpx
 
 from app.db_models.ai_config import AIConfig, PromptTemplate
 from app.db_models.user import User
@@ -114,6 +115,41 @@ def delete_ai_config(db: Session, current_user: User, config_id: int) -> None:
     db.commit()
 
 
+async def test_ai_config(db: Session, current_user: User, config_id: int) -> dict:
+    config = _get_ai_config(db, current_user, config_id)
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if config.provider == "claude":
+        headers["x-api-key"] = config.api_key
+        headers["anthropic-version"] = "2023-06-01"
+        body = {
+            "model": config.model_name,
+            "max_tokens": 16,
+            "messages": [{"role": "user", "content": "Reply with OK."}],
+        }
+        api_url = f"{config.api_base.rstrip('/')}/messages"
+    else:
+        headers["Authorization"] = f"Bearer {config.api_key}"
+        body = {
+            "model": config.model_name,
+            "temperature": 0,
+            "max_tokens": 16,
+            "messages": [{"role": "user", "content": "Reply with OK."}],
+        }
+        api_url = f"{config.api_base.rstrip('/')}/chat/completions"
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.post(api_url, headers=headers, json=body)
+            response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text[:500] if exc.response is not None else str(exc)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"AI 配置测试失败：{detail}") from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"AI 配置测试失败：{type(exc).__name__}") from exc
+
+    return {"ok": True, "message": "AI 配置测试成功"}
+
+
 def get_active_config(db: Session, current_user: User) -> AIConfig | None:
     return db.scalar(
         select(AIConfig).where(
@@ -172,6 +208,27 @@ DEFAULT_TEMPLATES = {
             "预测任务类型：{job_type}\n样本预测结果：\n{prediction_summary}\n\n"
             "请说明各标签的含义、置信度的含义、不确定性来源。"
             "不得包含诊断结论或治疗建议。最后请附上科研用途声明。"
+        ),
+    },
+    "dataset_role_suggestions": {
+        "name": "字段角色建议（默认）",
+        "system_prompt": DEFAULT_SYSTEM_PROMPT,
+        "user_prompt": (
+            "请根据以下数据集字段摘要，建议哪些字段应作为 feature、target 或 ignored。\n"
+            "请特别识别姓名、住院号、编号、ID、常量列、全缺失列等不应进入模型的字段。\n"
+            "任务类型：{task_type}\n目标字段：{target_columns}\n字段摘要：\n{column_summary}\n\n"
+            "请用中文给出分点建议，说明需要调整的字段和原因。"
+            "不要给出临床诊断或治疗建议。"
+        ),
+    },
+    "training_suggestions": {
+        "name": "训练参数建议（默认）",
+        "system_prompt": DEFAULT_SYSTEM_PROMPT,
+        "user_prompt": (
+            "请基于以下数据集和建模任务摘要，建议模型训练参数。\n"
+            "数据集摘要：\n{dataset_context}\n\n"
+            "请建议任务类型、算法、测试集比例、是否启用 OPNs、OPNs 配对方式、目标字段检查重点。"
+            "如果样本量较小或标签不均衡，请指出风险。不要给出临床诊断或治疗建议。"
         ),
     },
 }

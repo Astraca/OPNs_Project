@@ -31,6 +31,24 @@ def get_dataset_analysis(
     return ai_analysis_service.get_latest_dataset_analysis(db, current_user, dataset_id)
 
 
+@router.post("/dataset-role-suggestions/{dataset_id}", response_model=AIAnalysisReportResponse)
+async def generate_dataset_role_suggestions(
+    dataset_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await ai_analysis_service.generate_dataset_role_suggestions(db, current_user, dataset_id)
+
+
+@router.post("/training-suggestions/{dataset_id}", response_model=AIAnalysisReportResponse)
+async def generate_training_suggestions(
+    dataset_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await ai_analysis_service.generate_training_suggestions(db, current_user, dataset_id)
+
+
 # ── Model analysis ────────────────────────────────────────────────────────────
 
 @router.post("/model-analysis/{model_id}", response_model=AIAnalysisReportResponse)
