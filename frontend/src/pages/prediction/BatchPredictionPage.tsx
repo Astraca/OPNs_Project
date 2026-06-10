@@ -76,9 +76,11 @@ export default function BatchPredictionPage() {
         </Form>
 
         {!pendingFile ? (
-          <Dragger {...uploadProps}>
+          <Dragger {...uploadProps} disabled={!modelId}>
             <p className="ant-upload-drag-icon"><InboxOutlined /></p>
-            <p className="ant-upload-text">点击或拖拽文件到此区域</p>
+            <p className="ant-upload-text">
+              {modelId ? "点击或拖拽文件到此区域" : "请先选择模型"}
+            </p>
             <p className="ant-upload-hint">支持 CSV / XLSX / TXT / DAT / DATA 格式</p>
           </Dragger>
         ) : (
