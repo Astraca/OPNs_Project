@@ -52,6 +52,11 @@ def _is_likely_identifier(column: str) -> bool:
     return False
 
 
+def get_output_columns(columns: Iterable[str]) -> list[str]:
+    """Auto-detect target columns by 'out-' prefix (IgAN convention)."""
+    return [column for column in columns if str(column).startswith("out-")]
+
+
 def get_mestc_target_columns(columns: Iterable[str]) -> list[str]:
     """Return M/E/S/T/C target columns from the given column list.
 
