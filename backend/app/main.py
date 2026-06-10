@@ -14,8 +14,11 @@ from app.database import Base, engine
 from app.db_models import (
     AIAnalysisReport,
     AIConfig,
+    AIFieldRecommendation,
+    AIPrivacyConfirmation,
     Dataset,
     DatasetColumn,
+    DatasetContext,
     MLModel,
     ModelMetric,
     PredictionJob,
@@ -31,8 +34,11 @@ settings = get_settings()
 _ = (
     AIAnalysisReport,
     AIConfig,
+    AIFieldRecommendation,
+    AIPrivacyConfirmation,
     Dataset,
     DatasetColumn,
+    DatasetContext,
     MLModel,
     ModelMetric,
     PredictionJob,

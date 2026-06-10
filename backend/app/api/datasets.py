@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.db_models.user import User
 from app.dependencies import get_current_user
+from app.schemas.ai_field_schema import FieldConfirmationRequest
+from app.schemas.dataset_context_schema import DatasetContextPayload, DatasetContextResponse
 from app.schemas.dataset_schema import (
     CorrelationMatrixResponse,
     DatasetColumnResponse,
@@ -17,7 +19,7 @@ from app.schemas.dataset_schema import (
     NumericDistributionResponse,
     NumericStatisticsResponse,
 )
-from app.services import dataset_service
+from app.services import ai_analysis_service, dataset_context_service, dataset_service
 
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
@@ -160,3 +162,67 @@ def get_numeric_distribution_chart(
     current_user: User = Depends(get_current_user),
 ):
     return dataset_service.get_numeric_distribution_chart(db, current_user, dataset_id, column, bins)
+
+
+# ── Dataset Context ────────────────────────────────────────────────────────
+
+
+@router.get("/{dataset_id}/context", response_model=DatasetContextResponse)
+def get_dataset_context(
+    dataset_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ctx = dataset_context_service.get_context(db, current_user, dataset_id)
+    if ctx is None:
+        from fastapi import HTTPException, status as http_status
+
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="Dataset context not found. Create one via POST.",
+        )
+    return ctx
+
+
+@router.post("/{dataset_id}/context", response_model=DatasetContextResponse)
+def create_or_update_dataset_context(
+    dataset_id: int,
+    payload: DatasetContextPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return dataset_context_service.save_context(db, current_user, dataset_id, payload.model_dump())
+
+
+@router.put("/{dataset_id}/context", response_model=DatasetContextResponse)
+def update_dataset_context(
+    dataset_id: int,
+    payload: DatasetContextPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    existing = dataset_context_service.get_context(db, current_user, dataset_id)
+    if existing is None:
+        from fastapi import HTTPException, status as http_status
+
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="Dataset context not found. Create one via POST first.",
+        )
+    return dataset_context_service.save_context(db, current_user, dataset_id, payload.model_dump())
+
+
+# ── Feature config confirmation ──────────────────────────────────────────────
+
+
+@router.post("/{dataset_id}/feature-config/confirm")
+def confirm_field_recommendations(
+    dataset_id: int,
+    payload: FieldConfirmationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    return ai_analysis_service.confirm_field_recommendations(
+        db, current_user, dataset_id,
+        [item.model_dump() for item in payload.confirmations],
+    )

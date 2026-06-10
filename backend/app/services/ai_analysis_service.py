@@ -19,6 +19,39 @@ from app.services.training_service import get_model
 from app.utils.igan_fields import display_target_name
 
 
+# ── Forbidden content patterns ────────────────────────────────────────────────
+
+FORBIDDEN_PRESCRIPTIVE_PATTERNS = [
+    "建议用药", "推荐治疗方案", "建议剂量", "临床诊断为",
+    "recommended treatment", "prescribe", "dosage recommendation",
+    "确诊为", "必须治疗", "立即治疗", "临床处置",
+    "药物剂量", "替代医生判断", "可以排除疾病", "可以确认病变",
+]
+
+
+def _validate_ai_response(text: str) -> str:
+    """Validate AI output for medical safety boundaries.
+
+    Ensures the disclaimer is present and flags potentially dangerous content.
+    """
+    text = text.strip()
+
+    # Ensure research disclaimer
+    if RESEARCH_DISCLAIMER not in text:
+        text = text + "\n\n" + RESEARCH_DISCLAIMER
+
+    # Check for forbidden prescriptive patterns
+    for pattern in FORBIDDEN_PRESCRIPTIVE_PATTERNS:
+        if pattern in text:
+            text += (
+                "\n\n[系统提示] AI 输出包含可能被误解为临床建议的表述，"
+                "请仅用于科研目的。实际医学判断应由具有资质的临床医生完成。"
+            )
+            break
+
+    return text
+
+
 def _safe_format(template: str, values: Mapping[str, Any]) -> str:
     class SafeVars(dict):
         def __missing__(self, key: str) -> str:
@@ -84,14 +117,16 @@ async def _call_llm(
         api_url = f"{config.api_base.rstrip('/')}/chat/completions"
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(api_url, headers=headers, json=body)
             resp.raise_for_status()
             data = resp.json()
 
             if config.provider == "claude":
-                return data["content"][0]["text"]
-            return data["choices"][0]["message"]["content"]
+                raw = data["content"][0]["text"]
+            else:
+                raw = data["choices"][0]["message"]["content"]
+            return _validate_ai_response(raw)
     except httpx.HTTPStatusError as exc:
         detail = exc.response.text[:500] if exc.response is not None else str(exc)
         raise HTTPException(
@@ -368,6 +403,8 @@ async def generate_training_suggestions(db: Session, current_user: User, dataset
 
 
 async def generate_model_analysis(db: Session, current_user: User, model_id: int) -> AIAnalysisReport:
+    from app.db_models.dataset_context import DatasetContext
+
     model = get_model(db, current_user, model_id)
     statement = select(ModelMetric).where(ModelMetric.model_id == model.id)
     metrics = list(db.scalars(statement).all())
@@ -376,6 +413,17 @@ async def generate_model_analysis(db: Session, current_user: User, model_id: int
     f1_values = [values.get("f1", 0) for values in grouped.values()]
     avg_f1 = round(sum(f1_values) / len(f1_values), 4) if f1_values else 0
     evaluation_context = _model_evaluation_context(db, current_user, model.id, model.task_type)
+
+    # Fetch dataset context for enhanced analysis
+    ctx = db.scalar(
+        select(DatasetContext).where(DatasetContext.dataset_id == model.dataset_id),
+    ) if model.dataset_id else None
+    dataset_context = {
+        "scenario_description": ctx.scenario_description or "",
+        "feature_descriptions": ctx.feature_descriptions or {},
+        "target_descriptions": ctx.target_descriptions or {},
+    } if ctx else {}
+
     summary = {
         "model_name": model.model_name,
         "task_type": model.task_type,
@@ -411,12 +459,15 @@ async def generate_model_analysis(db: Session, current_user: User, model_id: int
         "metrics": _json_for_prompt(grouped),
         "evaluation_context": _json_for_prompt(evaluation_context),
         "model_context": _json_for_prompt(summary),
+        "dataset_context": _json_for_prompt(dataset_context) if dataset_context else "暂未填写数据集背景",
     }
     text = await _call_llm(db, current_user, "model_analysis", prompt_vars)
     return save_ai_report(db, current_user, "model_analysis", text, summary, model_id=model_id)
 
 
 async def generate_prediction_explanation(db: Session, current_user: User, prediction_job_id: int) -> AIAnalysisReport:
+    from app.db_models.dataset_context import DatasetContext
+
     job = db.get(PredictionJob, prediction_job_id)
     if job is None or job.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prediction job not found")
@@ -425,16 +476,214 @@ async def generate_prediction_explanation(db: Session, current_user: User, predi
     first_prediction = results[0].prediction_json if results else {}
     summary = {"job_id": job.id, "job_type": job.job_type, "first_prediction": first_prediction}
 
+    # Fetch dataset context if available
+    ctx = None
+    if job.model_id:
+        model = get_model(db, current_user, job.model_id)
+        if model and model.dataset_id:
+            ctx = db.scalar(
+                select(DatasetContext).where(DatasetContext.dataset_id == model.dataset_id),
+            )
+    dataset_context = {
+        "scenario_description": ctx.scenario_description or "",
+        "target_descriptions": ctx.target_descriptions or {},
+    } if ctx else {}
+
     prompt_vars = {
         "job_type": job.job_type,
         "sample_count": str(len(results)),
         "prediction_summary": _json_for_prompt(first_prediction),
+        "dataset_context": _json_for_prompt(dataset_context) if dataset_context else "暂未填写",
     }
     text = await _call_llm(db, current_user, "prediction_explanation", prompt_vars)
     return save_ai_report(
         db, current_user, "prediction_explanation", text, summary,
         model_id=job.model_id, prediction_job_id=job.id,
     )
+
+
+async def generate_batch_prediction_analysis(
+    db: Session, current_user: User, prediction_job_id: int,
+) -> AIAnalysisReport:
+    """Generate analysis for batch prediction results."""
+    from collections import Counter
+
+    from app.db_models.dataset_context import DatasetContext
+
+    job = db.get(PredictionJob, prediction_job_id)
+    if job is None or job.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prediction job not found")
+
+    statement = select(PredictionResult).where(
+        PredictionResult.job_id == job.id,
+    ).order_by(PredictionResult.sample_index)
+    results = list(db.scalars(statement).all())
+
+    # Build prediction distribution summary
+    label_distribution: dict[str, Counter] = {}
+    for result in results:
+        pred = result.prediction_json or {}
+        if isinstance(pred, dict):
+            if "result" in pred:  # classification
+                for target, value in pred["result"].items():
+                    label = value.get("label", "?") if isinstance(value, dict) else str(value)
+                    label_distribution.setdefault(target, Counter())[label] += 1
+            elif "predicted_value" in pred:  # regression
+                label_distribution.setdefault("predicted_value", Counter())["count"] += 1
+
+    # Model metrics
+    metrics_summary = {}
+    if job.model_id:
+        model = get_model(db, current_user, job.model_id)
+        metrics = db.scalars(
+            select(ModelMetric).where(ModelMetric.model_id == model.id),
+        ).all()
+        metrics_summary = _metric_summary(list(metrics))
+
+        # Dataset context
+        ctx = db.scalar(
+            select(DatasetContext).where(DatasetContext.dataset_id == model.dataset_id),
+        ) if model.dataset_id else None
+        dataset_context = {
+            "scenario_description": ctx.scenario_description or "",
+            "target_descriptions": ctx.target_descriptions or {},
+        } if ctx else {}
+    else:
+        dataset_context = {}
+
+    # Low-confidence samples
+    low_confidence_count = 0
+    for result in results:
+        pred = result.prediction_json or {}
+        if isinstance(pred, dict) and "result" in pred:
+            probs = [
+                v.get("probability", 1) if isinstance(v, dict) else 1
+                for v in pred["result"].values()
+            ]
+            if probs and min(probs) < 0.6:
+                low_confidence_count += 1
+
+    summary = {
+        "job_id": job.id,
+        "job_type": job.job_type,
+        "sample_count": len(results),
+        "predicted_label_distribution": {k: dict(v) for k, v in label_distribution.items()},
+        "model_metrics_summary": metrics_summary,
+        "low_confidence_count": low_confidence_count,
+    }
+
+    prompt_vars = {
+        "batch_prediction_summary": _json_for_prompt({
+            "job_type": job.job_type,
+            "sample_count": len(results),
+            "low_confidence_count": low_confidence_count,
+        }),
+        "predicted_label_distribution": _json_for_prompt(
+            {k: dict(v) for k, v in label_distribution.items()},
+        ),
+        "model_metrics_summary": _json_for_prompt(metrics_summary),
+        "dataset_context": _json_for_prompt(dataset_context) if dataset_context else "暂未填写",
+    }
+    text = await _call_llm(db, current_user, "batch_prediction_analysis", prompt_vars)
+    return save_ai_report(
+        db, current_user, "batch_prediction_analysis", text, summary,
+        model_id=job.model_id, prediction_job_id=job.id,
+    )
+
+
+async def generate_opns_pairing_analysis(
+    db: Session, current_user: User, model_id: int,
+) -> AIAnalysisReport:
+    """Generate OPNs pairing analysis for a trained model."""
+    import os
+
+    from app.db_models.dataset_context import DatasetContext
+
+    model = get_model(db, current_user, model_id)
+    if not model.opns_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This model does not use OPNs feature construction.",
+        )
+
+    metrics = db.scalars(
+        select(ModelMetric).where(ModelMetric.model_id == model.id),
+    ).all()
+    grouped = _metric_summary(list(metrics))
+
+    # Load transformer to get pairs
+    pairs = []
+    try:
+        from joblib import load
+        if model.metadata_file_path and os.path.isfile(model.metadata_file_path):
+            model_dir = os.path.dirname(model.metadata_file_path)
+            transformer_path = os.path.join(model_dir, "opns_transformer.pkl")
+            if os.path.isfile(transformer_path):
+                transformer = load(transformer_path)
+                pairs = [(str(a), str(b)) for a, b in getattr(transformer, "pairs_", [])]
+    except Exception:
+        pairs = []
+
+    # Dataset context
+    ctx = db.scalar(
+        select(DatasetContext).where(DatasetContext.dataset_id == model.dataset_id),
+    ) if model.dataset_id else None
+    dataset_context = {
+        "scenario_description": ctx.scenario_description or "",
+        "feature_descriptions": ctx.feature_descriptions or {},
+    } if ctx else {}
+
+    summary = {
+        "model_name": model.model_name,
+        "algorithm": model.algorithm,
+        "pairing_method": model.pairing_method,
+        "pairs": pairs,
+        "pair_count": len(pairs),
+        "metrics": grouped,
+    }
+
+    prompt_vars = {
+        "dataset_context": _json_for_prompt(dataset_context) if dataset_context else "暂未填写",
+        "opns_config": _json_for_prompt({
+            "algorithm": model.algorithm,
+            "pairing_method": model.pairing_method,
+            "mapping_config": model.mapping_config or {},
+        }),
+        "pairing_summary": _json_for_prompt({
+            "pairing_method": model.pairing_method,
+            "pairs": [{"left": a, "right": b} for a, b in pairs],
+            "total_pairs": len(pairs),
+        }),
+        "model_metrics": _json_for_prompt(grouped),
+        "baseline_comparison": _json_for_prompt({"note": "与同一数据集上标准 SVM/SVR 比较"}),
+    }
+    text = await _call_llm(db, current_user, "opns_pairing_analysis", prompt_vars)
+    return save_ai_report(db, current_user, "opns_pairing_analysis", text, summary, model_id=model_id)
+
+
+async def generate_chart_interpretation(
+    db: Session, current_user: User, payload: dict,
+) -> AIAnalysisReport:
+    """Generate natural language interpretation of a chart from its data."""
+    chart_type = payload.get("chart_type", "")
+    chart_title = payload.get("chart_title", "")
+    chart_data = payload.get("chart_data", {})
+    context = payload.get("context", {})
+
+    summary = {
+        "chart_type": chart_type,
+        "chart_title": chart_title,
+        "chart_data": chart_data,
+    }
+
+    prompt_vars = {
+        "chart_type": chart_type,
+        "chart_title": chart_title,
+        "chart_data_summary": _json_for_prompt(chart_data),
+        "dataset_context": _json_for_prompt(context) if context else "暂未填写",
+    }
+    text = await _call_llm(db, current_user, "chart_interpretation", prompt_vars)
+    return save_ai_report(db, current_user, "chart_interpretation", text, summary)
 
 
 def get_latest_dataset_analysis(db: Session, current_user: User, dataset_id: int) -> AIAnalysisReport:
@@ -499,4 +748,373 @@ def save_ai_report(
     db.add(report)
     db.commit()
     db.refresh(report)
+    return report
+
+
+async def generate_field_analysis(db: Session, current_user: User, dataset_id: int) -> AIAnalysisReport:
+    """Generate AI field-level recommendations with structured JSON output."""
+    import json
+    import re
+
+    from app.ai.privacy_guard import scan_dataset
+    from app.db_models.ai_field import AIFieldRecommendation
+    from app.db_models.dataset_context import DatasetContext
+
+    dataset = get_dataset(db, current_user, dataset_id)
+    columns = get_dataset_columns(db, current_user, dataset_id)
+    total_rows = dataset.sample_count or 0
+
+    # Build column statistics
+    col_stats = [
+        {
+            "column_name": col.column_name,
+            "data_type": col.data_type,
+            "current_role": col.role,
+            "missing_count": col.missing_count,
+            "missing_rate": round(col.missing_count / total_rows, 4) if total_rows else None,
+            "unique_count": col.unique_count,
+            "mean": col.mean,
+            "std": col.std,
+            "min_value": col.min_value,
+            "max_value": col.max_value,
+        }
+        for col in columns
+    ]
+
+    # Run privacy scan
+    privacy_result = scan_dataset(columns, total_rows)
+
+    # Fetch dataset context if available
+    ctx = db.scalar(
+        select(DatasetContext).where(DatasetContext.dataset_id == dataset.id),
+    )
+    feature_desc = ctx.feature_descriptions if ctx else {}
+    target_desc = ctx.target_descriptions if ctx else {}
+
+    summary = {
+        "dataset_name": dataset.name,
+        "task_type": dataset.task_type,
+        "sample_count": total_rows,
+        "target_columns": dataset.target_columns,
+        "column_statistics": col_stats,
+        "privacy_scan": privacy_result,
+        "feature_descriptions": feature_desc,
+        "target_descriptions": target_desc,
+    }
+
+    prompt_vars = {
+        "field_statistics": _json_for_prompt(col_stats),
+        "feature_descriptions": _json_for_prompt(feature_desc),
+        "target_columns": ", ".join(dataset.target_columns) if dataset.target_columns else "暂未设置",
+        "target_descriptions": _json_for_prompt(target_desc),
+        "privacy_scan_result": _json_for_prompt({
+            "classifications": [
+                c for c in privacy_result["classifications"]
+                if c["classification"] != "normal_modeling"
+            ],
+            "risk_summary": privacy_result["risk_summary"],
+        }),
+    }
+
+    text = await _call_llm(db, current_user, "field_analysis", prompt_vars)
+
+    # Parse structured JSON from AI output
+    recommendations = _parse_field_recommendations(text)
+
+    # Delete old recommendations for this dataset
+    old = db.scalars(
+        select(AIFieldRecommendation).where(
+            AIFieldRecommendation.dataset_id == dataset_id,
+            AIFieldRecommendation.user_id == current_user.id,
+        ),
+    ).all()
+    for row in old:
+        db.delete(row)
+
+    # Save new recommendations
+    for rec in recommendations:
+        db.add(AIFieldRecommendation(
+            user_id=current_user.id,
+            dataset_id=dataset_id,
+            field=rec["field"],
+            recommendation=rec["recommendation"],
+            reason=rec["reason"],
+            risk_level=rec.get("risk_level", "low"),
+            requires_user_confirmation=rec.get("requires_user_confirmation", False),
+        ))
+
+    report = save_ai_report(db, current_user, "field_analysis", text, summary, dataset_id=dataset_id)
+    db.commit()
+    return report
+
+
+def _parse_field_recommendations(text: str) -> list[dict]:
+    """Extract structured field recommendations from AI output."""
+    import json
+    import re
+
+    VALID_RECOMMENDATIONS = {
+        "keep", "ignore", "remove", "de_identify",
+        "impute_and_keep", "standardize_and_keep",
+        "encode_and_keep", "check_for_leakage", "manual_review",
+    }
+    VALID_RISK_LEVELS = {"high", "medium", "low"}
+
+    # Try to extract JSON array from the response
+    # Strip markdown code blocks
+    clean = re.sub(r"^```(?:json)?\s*", "", text.strip())
+    clean = re.sub(r"\s*```$", "", clean)
+
+    try:
+        parsed = json.loads(clean)
+        if isinstance(parsed, list):
+            result = []
+            for item in parsed:
+                if not isinstance(item, dict) or "field" not in item:
+                    continue
+                rec = item.get("recommendation", "manual_review")
+                if rec not in VALID_RECOMMENDATIONS:
+                    rec = "manual_review"
+                risk = item.get("risk_level", "low")
+                if risk not in VALID_RISK_LEVELS:
+                    risk = "low"
+                result.append({
+                    "field": str(item["field"]),
+                    "recommendation": rec,
+                    "reason": str(item.get("reason", "")),
+                    "risk_level": risk,
+                    "requires_user_confirmation": bool(item.get("requires_user_confirmation", False)),
+                })
+            return result
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+
+    # Fallback: try to find JSON array via regex
+    match = re.search(r"\[.*\]", clean, re.DOTALL)
+    if match:
+        try:
+            return _parse_field_recommendations(match.group(0))
+        except Exception:
+            pass
+
+    return []
+
+
+def get_latest_field_analysis(db: Session, current_user: User, dataset_id: int) -> AIAnalysisReport:
+    report = db.scalar(
+        select(AIAnalysisReport)
+        .where(
+            AIAnalysisReport.user_id == current_user.id,
+            AIAnalysisReport.dataset_id == dataset_id,
+            AIAnalysisReport.analysis_type == "field_analysis",
+        )
+        .order_by(AIAnalysisReport.created_at.desc())
+        .limit(1)
+    )
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No field analysis found. Generate one via POST first.",
+        )
+    return report
+
+
+def get_field_recommendations(db: Session, current_user: User, dataset_id: int) -> list[dict]:
+    """Get the saved AI field recommendations for a dataset."""
+    from app.db_models.ai_field import AIFieldRecommendation
+
+    rows = db.scalars(
+        select(AIFieldRecommendation)
+        .where(
+            AIFieldRecommendation.dataset_id == dataset_id,
+            AIFieldRecommendation.user_id == current_user.id,
+        )
+        .order_by(AIFieldRecommendation.id)
+    ).all()
+    return [
+        {
+            "id": row.id,
+            "field": row.field,
+            "recommendation": row.recommendation,
+            "reason": row.reason,
+            "risk_level": row.risk_level,
+            "requires_user_confirmation": row.requires_user_confirmation,
+            "user_confirmed": row.user_confirmed,
+            "user_modification": row.user_modification,
+        }
+        for row in rows
+    ]
+
+
+def confirm_field_recommendations(
+    db: Session,
+    current_user: User,
+    dataset_id: int,
+    confirmations: list[dict],
+) -> dict:
+    """Apply user-confirmed field recommendations to dataset columns."""
+    from app.db_models.ai_field import AIFieldRecommendation
+
+    # Role mapping from recommendation to dataset column role
+    RECOMMENDATION_TO_ROLE: dict[str, str] = {
+        "keep": "feature",
+        "ignore": "ignored",
+        "remove": "ignored",
+        "de_identify": "ignored",
+        "impute_and_keep": "feature",
+        "standardize_and_keep": "feature",
+        "encode_and_keep": "feature",
+        "check_for_leakage": "ignored",
+        "manual_review": None,  # no change
+    }
+
+    # Update field recommendation rows
+    for item in confirmations:
+        field_name = item.get("field", "")
+        row = db.scalar(
+            select(AIFieldRecommendation).where(
+                AIFieldRecommendation.dataset_id == dataset_id,
+                AIFieldRecommendation.user_id == current_user.id,
+                AIFieldRecommendation.field == field_name,
+            ),
+        )
+        if row is not None:
+            row.user_confirmed = item.get("accepted", False)
+            row.user_modification = item.get("modification")
+
+    db.commit()
+
+    # Apply accepted recommendations to dataset columns
+    accepted_fields = {
+        item["field"]: item.get("modification") or item["field"]
+        for item in confirmations
+        if item.get("accepted")
+    }
+
+    if accepted_fields:
+        field_recommendations = db.scalars(
+            select(AIFieldRecommendation).where(
+                AIFieldRecommendation.dataset_id == dataset_id,
+                AIFieldRecommendation.user_id == current_user.id,
+            ),
+        ).all()
+
+        rec_map = {r.field: r.recommendation for r in field_recommendations}
+
+        for col in get_dataset_columns(db, current_user, dataset_id):
+            if col.column_name in accepted_fields:
+                rec = rec_map.get(col.column_name, "keep")
+                new_role = RECOMMENDATION_TO_ROLE.get(rec)
+                if new_role and col.role != new_role:
+                    col.role = new_role
+
+        db.commit()
+
+    return {"updated_fields": len(accepted_fields)}
+
+
+async def generate_training_config_suggestion(
+    db: Session, current_user: User, dataset_id: int,
+) -> AIAnalysisReport:
+    """Generate structured training config suggestion with JSON output."""
+    import json
+    import re
+
+    from app.db_models.ai_field import AIFieldRecommendation
+    from app.db_models.dataset_context import DatasetContext
+
+    dataset = get_dataset(db, current_user, dataset_id)
+    profile = get_profile(db, current_user, dataset_id)
+    columns = get_dataset_columns(db, current_user, dataset_id)
+
+    # Field recommendations
+    field_recs = db.scalars(
+        select(AIFieldRecommendation).where(
+            AIFieldRecommendation.dataset_id == dataset_id,
+            AIFieldRecommendation.user_id == current_user.id,
+        ),
+    ).all()
+    field_rec_data = [
+        {"field": r.field, "recommendation": r.recommendation, "reason": r.reason}
+        for r in field_recs
+    ] if field_recs else []
+
+    # Dataset context
+    ctx = db.scalar(
+        select(DatasetContext).where(DatasetContext.dataset_id == dataset.id),
+    )
+    dataset_context = {
+        "scenario_description": ctx.scenario_description or "",
+        "feature_descriptions": ctx.feature_descriptions or {},
+        "target_descriptions": ctx.target_descriptions or {},
+    } if ctx else {}
+
+    # Available models based on task type
+    if dataset.task_type == "regression":
+        available_models = "OPNs-SVR, SVR, RandomForest (回归), Ridge"
+        available_pairing = "adjacent, random, correlation_greedy"
+    else:
+        available_models = "OPNs-SVM, SVM, RandomForest (分类), LogisticRegression"
+        available_pairing = "adjacent, random, correlation_greedy"
+
+    summary = {
+        "dataset_id": dataset.id,
+        "task_type": dataset.task_type,
+        "sample_count": dataset.sample_count,
+        "target_columns": dataset.target_columns,
+        "field_recommendations": field_rec_data,
+        "dataset_context": dataset_context,
+    }
+
+    prompt_vars = {
+        "dataset_profile": _json_for_prompt({
+            "name": dataset.name,
+            "task_type": dataset.task_type,
+            "sample_count": dataset.sample_count,
+            "feature_count": dataset.feature_count,
+            "target_columns": dataset.target_columns,
+        }),
+        "field_recommendations": _json_for_prompt(field_rec_data),
+        "target_columns": ", ".join(dataset.target_columns) if dataset.target_columns else "暂未设置",
+        "label_distribution": _json_for_prompt(profile.get("target_distribution", {})),
+        "dataset_context": _json_for_prompt(dataset_context) if dataset_context else "暂未填写",
+        "available_models": available_models,
+        "available_pairing_methods": available_pairing,
+    }
+
+    text = await _call_llm(db, current_user, "training_config_suggestion", prompt_vars)
+
+    # Parse structured JSON
+    clean = re.sub(r"^```(?:json)?\s*", "", text.strip())
+    clean = re.sub(r"\s*```$", "", clean)
+    try:
+        parsed = json.loads(clean) if isinstance(clean, str) and clean.strip() else {}
+    except json.JSONDecodeError:
+        parsed = {"raw": text}
+
+    return save_ai_report(
+        db, current_user, "training_config_suggestion", text,
+        {**summary, "parsed_suggestion": parsed},
+        dataset_id=dataset_id,
+    )
+
+
+def get_latest_training_config_suggestion(
+    db: Session, current_user: User, dataset_id: int,
+) -> AIAnalysisReport:
+    report = db.scalar(
+        select(AIAnalysisReport)
+        .where(
+            AIAnalysisReport.user_id == current_user.id,
+            AIAnalysisReport.dataset_id == dataset_id,
+            AIAnalysisReport.analysis_type == "training_config_suggestion",
+        )
+        .order_by(AIAnalysisReport.created_at.desc())
+        .limit(1)
+    )
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No training config suggestion found. Generate one via POST first.",
+        )
     return report

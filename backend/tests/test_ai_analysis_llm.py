@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.db_models.ai_config import PromptTemplate
 from app.db_models.user import User
+from app.schemas.prediction_schema import RESEARCH_DISCLAIMER
 from app.services import ai_analysis_service, ai_config_service
 
 
@@ -97,7 +98,8 @@ class AIAnalysisLLMTestCase(unittest.TestCase):
                 )
             )
 
-        self.assertEqual(text, "真实 AI 响应")
+        self.assertIn("真实 AI 响应", text)
+        self.assertIn(RESEARCH_DISCLAIMER, text)
         request_body = FakeAsyncClient.last_request["json"]
         self.assertEqual(request_body["model"], "demo-model")
         self.assertEqual(request_body["messages"][0]["content"], "系统提示 OPNs-SVM")
