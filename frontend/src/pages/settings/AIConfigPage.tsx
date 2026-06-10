@@ -154,14 +154,9 @@ export default function AIConfigPage() {
         saved = (await request.post<AIConfigItem>("/ai-config/configs", payload)).data;
         message.success("配置已创建");
       }
-      try {
-        await testConfig(saved.id);
-      } catch (err) {
-        setTestStatus((current) => ({ ...current, [saved.id]: "error" }));
-        throw err;
-      }
       setModalOpen(false);
       await loadData();
+      void runConfigTest(saved.id, true);
     } catch (err: unknown) {
       const detail =
         err && typeof err === "object" && "response" in err
@@ -205,11 +200,13 @@ export default function AIConfigPage() {
     return data;
   }
 
-  async function handleTestConfig(id: number) {
+  async function runConfigTest(id: number, silentSuccess = false) {
     setTestingId(id);
     try {
       const data = await testConfig(id);
-      message.success(data.message || "AI 配置测试成功");
+      if (!silentSuccess) {
+        message.success(data.message || "AI 配置测试成功");
+      }
     } catch (err: unknown) {
       setTestStatus((current) => ({ ...current, [id]: "error" }));
       const detail =
@@ -220,6 +217,10 @@ export default function AIConfigPage() {
     } finally {
       setTestingId(null);
     }
+  }
+
+  async function handleTestConfig(id: number) {
+    await runConfigTest(id);
   }
 
   // Template handlers
@@ -292,12 +293,15 @@ export default function AIConfigPage() {
         <Space>
           <Button
             size="small"
+            style={{ width: 72 }}
             icon={
               testStatus[record.id] === "success" ? (
                 <CheckCircleOutlined style={{ color: "#52c41a" }} />
               ) : testStatus[record.id] === "error" ? (
                 <CloseCircleOutlined style={{ color: "#ff4d4f" }} />
-              ) : undefined
+              ) : (
+                <CheckCircleOutlined style={{ color: "#8c8c8c" }} />
+              )
             }
             loading={testingId === record.id}
             onClick={() => handleTestConfig(record.id)}
@@ -356,7 +360,13 @@ export default function AIConfigPage() {
                   </Button>
                 }
               >
-                <Table rowKey="id" columns={configColumns} dataSource={configs} pagination={false} />
+                <Table
+                  rowKey="id"
+                  columns={configColumns}
+                  dataSource={configs}
+                  pagination={{ pageSize: 6, showSizeChanger: false }}
+                  scroll={{ x: 820 }}
+                />
               </Card>
             ),
           },
