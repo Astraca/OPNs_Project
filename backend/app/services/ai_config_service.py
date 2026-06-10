@@ -1,8 +1,7 @@
-from sqlalchemy import select, update
-from sqlalchemy.orm import Session
-
 from fastapi import HTTPException, status
 import httpx
+from sqlalchemy import select, update
+from sqlalchemy.orm import Session
 
 from app.db_models.ai_config import AIConfig, PromptTemplate
 from app.db_models.user import User
@@ -66,6 +65,7 @@ def create_ai_config(db: Session, current_user: User, payload: dict) -> AIConfig
     api_key = str(payload.get("api_key", "")).strip()
     if not api_key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="API key is required")
+    _check_duplicate_model_name(db, current_user, str(payload["model_name"]))
     is_active = bool(payload.get("is_active", False))
     # Deactivate other configs if this one is active
     if is_active:
@@ -91,6 +91,8 @@ def create_ai_config(db: Session, current_user: User, payload: dict) -> AIConfig
 
 def update_ai_config(db: Session, current_user: User, config_id: int, payload: dict) -> AIConfig:
     config = _get_ai_config(db, current_user, config_id)
+    if "model_name" in payload:
+        _check_duplicate_model_name(db, current_user, str(payload["model_name"]), exclude_id=config.id)
     if payload.get("is_active"):
         db.execute(
             update(AIConfig)
@@ -142,12 +144,49 @@ async def test_ai_config(db: Session, current_user: User, config_id: int) -> dic
             response = await client.post(api_url, headers=headers, json=body)
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
-        detail = exc.response.text[:500] if exc.response is not None else str(exc)
+        detail = _extract_ai_error_message(exc.response) if exc.response is not None else str(exc)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"AI 配置测试失败：{detail}") from exc
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"AI 配置测试失败：{type(exc).__name__}") from exc
 
     return {"ok": True, "message": "AI 配置测试成功"}
+
+
+def _extract_ai_error_message(response: httpx.Response) -> str:
+    try:
+        data = response.json()
+    except ValueError:
+        return response.text[:500] or response.reason_phrase
+
+    if isinstance(data, dict):
+        error = data.get("error")
+        if isinstance(error, dict):
+            message = error.get("message") or error.get("detail") or error.get("type")
+            if message:
+                return str(message)
+        for key in ("message", "detail", "error_description"):
+            if data.get(key):
+                return str(data[key])
+    return response.reason_phrase or "Unknown error"
+
+
+def _check_duplicate_model_name(
+    db: Session,
+    current_user: User,
+    model_name: str,
+    exclude_id: int | None = None,
+) -> None:
+    statement = select(AIConfig).where(
+        AIConfig.user_id == current_user.id,
+        AIConfig.model_name == model_name,
+    )
+    if exclude_id is not None:
+        statement = statement.where(AIConfig.id != exclude_id)
+    if db.scalar(statement) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"模型名称 '{model_name}' 已存在，请使用其他模型名称",
+        )
 
 
 def get_active_config(db: Session, current_user: User) -> AIConfig | None:

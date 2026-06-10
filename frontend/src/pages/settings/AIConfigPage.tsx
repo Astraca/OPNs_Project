@@ -1,5 +1,6 @@
 import {
   CheckCircleOutlined,
+  CloseCircleOutlined,
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
@@ -51,6 +52,8 @@ type PromptTemplateItem = {
   user_prompt: string;
 };
 
+type TestStatus = "success" | "error";
+
 const TEMPLATE_TYPE_LABELS: Record<string, string> = {
   dataset_analysis: "数据集分析",
   model_analysis: "模型分析",
@@ -82,6 +85,7 @@ export default function AIConfigPage() {
   const [saving, setSaving] = useState(false);
   const [activeSavingId, setActiveSavingId] = useState<number | null>(null);
   const [testingId, setTestingId] = useState<number | null>(null);
+  const [testStatus, setTestStatus] = useState<Record<number, TestStatus>>({});
 
   // Template modal
   const [tmplModalOpen, setTmplModalOpen] = useState(false);
@@ -142,17 +146,28 @@ export default function AIConfigPage() {
       if (editingConfig && typeof payload.api_key === "string" && payload.api_key.trim() === "") {
         delete payload.api_key;
       }
+      let saved: AIConfigItem;
       if (editingConfig) {
-        await request.put(`/ai-config/configs/${editingConfig.id}`, payload);
+        saved = (await request.put<AIConfigItem>(`/ai-config/configs/${editingConfig.id}`, payload)).data;
         message.success("配置已更新");
       } else {
-        await request.post("/ai-config/configs", payload);
+        saved = (await request.post<AIConfigItem>("/ai-config/configs", payload)).data;
         message.success("配置已创建");
+      }
+      try {
+        await testConfig(saved.id);
+      } catch (err) {
+        setTestStatus((current) => ({ ...current, [saved.id]: "error" }));
+        throw err;
       }
       setModalOpen(false);
       await loadData();
-    } catch {
-      message.error("保存失败");
+    } catch (err: unknown) {
+      const detail =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      message.error(typeof detail === "string" ? detail : "保存或测试失败");
     } finally {
       setSaving(false);
     }
@@ -169,6 +184,10 @@ export default function AIConfigPage() {
   }
 
   async function handleSetActive(id: number, checked: boolean) {
+    if (checked && testStatus[id] !== "success") {
+      message.warning("请先测试配置，测试成功后才能设为默认");
+      return;
+    }
     setActiveSavingId(id);
     try {
       await request.put(`/ai-config/configs/${id}`, { is_active: checked });
@@ -180,12 +199,19 @@ export default function AIConfigPage() {
     }
   }
 
+  async function testConfig(id: number) {
+    const { data } = await request.post<{ ok: boolean; message: string }>(`/ai-config/configs/${id}/test`);
+    setTestStatus((current) => ({ ...current, [id]: "success" }));
+    return data;
+  }
+
   async function handleTestConfig(id: number) {
     setTestingId(id);
     try {
-      const { data } = await request.post<{ ok: boolean; message: string }>(`/ai-config/configs/${id}/test`);
+      const data = await testConfig(id);
       message.success(data.message || "AI 配置测试成功");
     } catch (err: unknown) {
+      setTestStatus((current) => ({ ...current, [id]: "error" }));
       const detail =
         err && typeof err === "object" && "response" in err
           ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
@@ -254,6 +280,7 @@ export default function AIConfigPage() {
       render: (v: boolean, record) => (
         <Switch
           checked={v}
+          disabled={!v && testStatus[record.id] !== "success"}
           loading={activeSavingId === record.id}
           onChange={(checked) => handleSetActive(record.id, checked)}
         />
@@ -265,7 +292,13 @@ export default function AIConfigPage() {
         <Space>
           <Button
             size="small"
-            icon={<CheckCircleOutlined />}
+            icon={
+              testStatus[record.id] === "success" ? (
+                <CheckCircleOutlined style={{ color: "#52c41a" }} />
+              ) : testStatus[record.id] === "error" ? (
+                <CloseCircleOutlined style={{ color: "#ff4d4f" }} />
+              ) : undefined
+            }
             loading={testingId === record.id}
             onClick={() => handleTestConfig(record.id)}
           >

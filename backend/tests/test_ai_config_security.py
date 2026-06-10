@@ -1,6 +1,7 @@
 import unittest
 
 from fastapi import HTTPException
+import httpx
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -110,6 +111,43 @@ class AIConfigSecurityTestCase(unittest.TestCase):
 
         self.assertFalse(first.is_active)
         self.assertTrue(second.is_active)
+
+    def test_model_name_must_be_unique(self) -> None:
+        ai_config_service.create_ai_config(
+            self.session,
+            self.user,
+            {
+                "name": "First GPT",
+                "provider": "openai",
+                "api_base": "https://api.openai.com/v1",
+                "api_key": "sk-first",
+                "model_name": "gpt-4o",
+            },
+        )
+
+        with self.assertRaises(HTTPException) as ctx:
+            ai_config_service.create_ai_config(
+                self.session,
+                self.user,
+                {
+                    "name": "Second GPT",
+                    "provider": "openai",
+                    "api_base": "https://api.openai.com/v1",
+                    "api_key": "sk-second",
+                    "model_name": "gpt-4o",
+                },
+            )
+
+        self.assertEqual(ctx.exception.status_code, 409)
+
+    def test_extract_ai_error_message_returns_message_only(self) -> None:
+        response = httpx.Response(
+            401,
+            json={"error": {"message": "Invalid API key", "type": "authentication_error"}},
+            request=httpx.Request("POST", "https://example.com"),
+        )
+
+        self.assertEqual(ai_config_service._extract_ai_error_message(response), "Invalid API key")
 
 
 if __name__ == "__main__":
