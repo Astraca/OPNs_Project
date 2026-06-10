@@ -31,14 +31,14 @@ export default function DatasetCreatePage() {
         form={form}
         layout="vertical"
         className="dataset-form"
-        initialValues={{ task_type: "multi_output_classification" }}
         onFinish={handleSubmit}
       >
         <Form.Item name="name" label="数据集名称" rules={[{ required: true, message: "请输入数据集名称" }]}>
           <Input maxLength={128} placeholder="例如：IgAN 病理数据集、CKD 临床数据" />
         </Form.Item>
-        <Form.Item name="task_type" label="任务类型" rules={[{ required: true }]}>
+        <Form.Item name="task_type" label="任务类型" rules={[{ required: true, message: "请选择任务类型" }]}>
           <Select
+            placeholder="请选择任务类型"
             options={[
               { label: "多标签分类（如 IgAN M/E/S/T/C）", value: "multi_output_classification" },
               { label: "单标签分类（如患病/健康）", value: "classification" },
