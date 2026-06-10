@@ -1,10 +1,10 @@
-import { DownloadOutlined, EyeOutlined, FileTextOutlined } from "@ant-design/icons";
-import { Button, Descriptions, Modal, Space, Table, Tag, Typography, message } from "antd";
+import { DeleteOutlined, DownloadOutlined, EyeOutlined, FileTextOutlined } from "@ant-design/icons";
+import { Button, Descriptions, Modal, Popconfirm, Space, Table, Tag, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState } from "react";
 
 import { generatePredictionExplanation } from "../../api/ai";
-import { getPredictionDetail, listPredictionJobs } from "../../api/predictions";
+import { deletePrediction, getPredictionDetail, listPredictionJobs } from "../../api/predictions";
 import { listModels } from "../../api/models";
 import AIReportPanel from "../ai/AIReportPanel";
 import type { AIAnalysisReport } from "../../types/ai";
@@ -68,6 +68,16 @@ export default function PredictionHistoryPage() {
     }
   }
 
+  async function handleDelete(jobId: number) {
+    try {
+      await deletePrediction(jobId);
+      setJobs((prev) => prev.filter((j) => j.id !== jobId));
+      message.success("预测记录已删除");
+    } catch {
+      message.error("删除失败");
+    }
+  }
+
   function handleDownload(jobId: number) {
     window.open(`/api/predictions/batch/${jobId}/download`, "_blank");
   }
@@ -128,6 +138,9 @@ export default function PredictionHistoryPage() {
               导出
             </Button>
           )}
+          <Popconfirm title="确定删除此预测记录？" onConfirm={() => handleDelete(record.id)}>
+            <Button size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
         </Space>
       ),
     },

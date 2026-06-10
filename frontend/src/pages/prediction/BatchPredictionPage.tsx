@@ -77,6 +77,7 @@ export default function BatchPredictionPage() {
         <Form layout="vertical">
           <Form.Item label="模型" required>
             <Select
+              placeholder="请选择分类模型"
               options={models.map((model) => ({ label: `${model.model_name} (${model.algorithm})`, value: model.id }))}
               onChange={(value: number) => setModelId(value)}
             />

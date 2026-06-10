@@ -50,3 +50,7 @@ export async function getPredictionDetail(jobId: number) {
   const { data } = await request.get<Record<string, unknown>>(`/predictions/${jobId}`);
   return data;
 }
+
+export async function deletePrediction(jobId: number) {
+  await request.delete(`/predictions/${jobId}`);
+}

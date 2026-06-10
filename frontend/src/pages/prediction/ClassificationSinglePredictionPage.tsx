@@ -57,7 +57,7 @@ export default function ClassificationSinglePredictionPage() {
       <Form form={form} layout="vertical" className="prediction-form" onFinish={handleSubmit}>
         <Form.Item name="model_id" label="分类模型" rules={[{ required: true }]}>
           <Select
-            placeholder={models.length ? "选择模型" : "暂无分类模型"}
+            placeholder="请选择分类模型"
             options={models.map((m) => ({ label: `${m.model_name} (${m.algorithm})`, value: m.id }))}
             onChange={(v: number) => setSelectedModelId(v)}
           />

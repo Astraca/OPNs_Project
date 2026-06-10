@@ -342,6 +342,15 @@ def get_prediction_detail(db: Session, current_user: User, job_id: int) -> dict:
     }
 
 
+def delete_prediction(db: Session, current_user: User, job_id: int) -> None:
+    job = db.get(PredictionJob, job_id)
+    if job is None or job.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prediction job not found")
+    db.execute(select(PredictionResult).where(PredictionResult.job_id == job.id).with_for_update())
+    db.delete(job)
+    db.commit()
+
+
 def download_prediction_result(db: Session, current_user: User, job_id: int) -> FileResponse:
     job = db.get(PredictionJob, job_id)
     if job is None or job.user_id != current_user.id:

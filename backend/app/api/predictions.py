@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -82,6 +82,15 @@ def get_prediction_detail(
     current_user: User = Depends(get_current_user),
 ):
     return prediction_service.get_prediction_detail(db, current_user, prediction_id)
+
+
+@router.delete("/{prediction_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_prediction(
+    prediction_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    prediction_service.delete_prediction(db, current_user, prediction_id)
 
 
 @router.get("/batch/{job_id}/download")
