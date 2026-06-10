@@ -134,24 +134,31 @@ DEFAULT_TEMPLATES = {
         "name": "数据集分析（默认）",
         "system_prompt": DEFAULT_SYSTEM_PROMPT,
         "user_prompt": (
-            "请分析以下数据集摘要：\n"
+            "请分析以下 IgAN 研究数据集摘要。系统只提交结构化摘要，不提交原始逐行数据或图片。\n"
             "样本数：{sample_count}\n字段数：{feature_count}\n"
-            "目标字段：{target_columns}\n缺失值情况：{missing_values}\n"
-            "标签分布：{target_distribution}\n\n"
-            "请从数据规模、缺失值处理建议、类别不平衡、建模注意事项角度给出分析。"
-            "最后请附上科研用途声明。"
+            "目标字段：{target_columns}\n\n"
+            "缺失值情况（高缺失字段）：\n{missing_values}\n\n"
+            "标签分布：\n{target_distribution}\n\n"
+            "完整提交摘要：\n{dataset_context}\n\n"
+            "请从数据规模、缺失值处理建议、类别不平衡、字段角色、建模注意事项角度给出分析。"
+            "不要给出临床诊断或治疗建议，最后请附上科研用途声明。"
         ),
     },
     "model_analysis": {
         "name": "模型分析（默认）",
         "system_prompt": DEFAULT_SYSTEM_PROMPT,
         "user_prompt": (
-            "请分析以下模型评估结果：\n"
-            "算法：{algorithm}\n目标字段：{target_columns}\n"
-            "输入特征数：{feature_count}\n"
-            "各标签指标：\n{metrics}\n\n"
-            "请从整体表现、标签差异、与基线对比、可能原因和局限性角度给出分析。"
-            "最后请附上科研用途声明。"
+            "请分析以下 IgAN 预测模型评估结果。系统提交的是结构化指标和评估数值，不提交图像文件或模型二进制文件。\n"
+            "模型名称：{model_name}\n任务类型：{task_type}\n算法：{algorithm}\n"
+            "目标字段：{target_columns}\n输入特征数：{feature_count}\n"
+            "OPNs 启用：{opns_enabled}\n配对方式：{pairing_method}\n\n"
+            "特征摘要：\n{feature_columns}\n\n"
+            "超参数：\n{hyperparameters}\n\n"
+            "核心指标：\n{metrics}\n\n"
+            "评估补充数据（如混淆矩阵、ROC AUC、残差摘要）：\n{evaluation_context}\n\n"
+            "完整提交摘要：\n{model_context}\n\n"
+            "请从整体表现、各标签差异、可能过拟合/欠拟合风险、类别不平衡影响、局限性和后续改进建议角度给出分析。"
+            "不要给出临床诊断或治疗建议，最后请附上科研用途声明。"
         ),
     },
     "prediction_explanation": {
@@ -207,6 +214,25 @@ def delete_prompt_template(db: Session, current_user: User, template_id: int) ->
 
 def get_default_template(template_type: str) -> dict:
     return DEFAULT_TEMPLATES.get(template_type, DEFAULT_TEMPLATES["dataset_analysis"])
+
+
+def get_prompt_template_for_type(db: Session, current_user: User, template_type: str) -> dict:
+    template = db.scalar(
+        select(PromptTemplate)
+        .where(
+            PromptTemplate.user_id == current_user.id,
+            PromptTemplate.template_type == template_type,
+        )
+        .order_by(PromptTemplate.created_at.desc())
+        .limit(1)
+    )
+    if template is None:
+        return get_default_template(template_type)
+    return {
+        "name": template.name,
+        "system_prompt": template.system_prompt,
+        "user_prompt": template.user_prompt,
+    }
 
 
 def _get_prompt_template(db: Session, current_user: User, template_id: int) -> PromptTemplate:

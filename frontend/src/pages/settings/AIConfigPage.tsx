@@ -58,6 +58,15 @@ const TEMPLATE_TYPE_LABELS: Record<string, string> = {
   prediction_explanation: "预测说明",
 };
 
+const TEMPLATE_TYPE_HELP: Record<string, string> = {
+  dataset_analysis:
+    "提交给 AI：样本数、字段数、目标字段、缺失值摘要、标签分布、数据集结构化摘要。可用变量：{sample_count}, {feature_count}, {target_columns}, {missing_values}, {target_distribution}, {dataset_context}。",
+  model_analysis:
+    "提交给 AI：模型名称、任务类型、算法、目标字段、特征摘要、超参数、核心指标、混淆矩阵/ROC AUC/残差摘要等结构化数值。不提交图像或模型文件。可用变量：{model_name}, {task_type}, {algorithm}, {target_columns}, {feature_count}, {feature_columns}, {hyperparameters}, {opns_enabled}, {pairing_method}, {avg_f1}, {metrics}, {evaluation_context}, {model_context}。",
+  prediction_explanation:
+    "提交给 AI：预测任务类型、样本数量、首条预测结果摘要。可用变量：{job_type}, {sample_count}, {prediction_summary}。",
+};
+
 export default function AIConfigPage() {
   const [providers, setProviders] = useState<Record<string, AIProvider>>({});
   const [configs, setConfigs] = useState<AIConfigItem[]>([]);
@@ -362,6 +371,16 @@ export default function AIConfigPage() {
               }))}
             />
           </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.template_type !== cur.template_type}>
+            {({ getFieldValue }) => {
+              const type = getFieldValue("template_type") as string | undefined;
+              return type ? (
+                <Typography.Paragraph type="secondary">
+                  {TEMPLATE_TYPE_HELP[type]}
+                </Typography.Paragraph>
+              ) : null;
+            }}
+          </Form.Item>
           <Form.Item name="system_prompt" label="系统提示词">
             <Input.TextArea rows={3} placeholder="设定 AI 的角色和行为" />
           </Form.Item>
@@ -369,7 +388,7 @@ export default function AIConfigPage() {
             name="user_prompt"
             label="用户提示词"
             rules={[{ required: true }]}
-            extra="可用变量：{sample_count}, {feature_count}, {target_columns}, {algorithm}, {metrics}, {job_type} 等"
+            extra="变量使用 {variable_name} 格式；未知变量会原样保留，便于逐步调试模板。"
           >
             <Input.TextArea rows={5} placeholder="包含 {variable} 占位符的模板" />
           </Form.Item>
