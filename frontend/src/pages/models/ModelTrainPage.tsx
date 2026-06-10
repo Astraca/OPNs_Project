@@ -141,6 +141,7 @@ export default function ModelTrainPage() {
 
         <Form.Item name="dataset_id" label="数据集" rules={[{ required: true, message: "请选择数据集" }]}>
           <Select
+            placeholder="请选择训练数据集"
             options={datasets.map((d) => ({
               label: `${d.name} (${d.sample_count} 行, 目标: ${d.target_columns.length ? d.target_columns.join(",") : "未设置"})`,
               value: d.id,
