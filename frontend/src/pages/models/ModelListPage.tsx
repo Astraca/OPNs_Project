@@ -63,7 +63,7 @@ export default function ModelListPage() {
     {
       title: "目标字段", dataIndex: "target_columns", minWidth: 160,
       render: (targets: string[]) => (
-        <div style={{ overflowX: "auto", whiteSpace: "nowrap" }}>
+        <div style={{ overflowX: "auto", whiteSpace: "nowrap", maxWidth: 260 }}>
           {targets.map(displayFieldName).join(", ")}
         </div>
       ),
