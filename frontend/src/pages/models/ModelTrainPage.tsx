@@ -75,10 +75,14 @@ export default function ModelTrainPage() {
     [datasets, selectedDatasetId],
   );
 
-  function handleDatasetChange(datasetId: number) {
-    setSelectedDatasetId(datasetId);
+  function handleDatasetChange(datasetId: number | undefined) {
+    setSelectedDatasetId(datasetId ?? null);
+    if (datasetId == null) {
+      form.resetFields(["target_columns", "target_column"]);
+      return;
+    }
     const ds = datasets.find((d) => d.id === datasetId);
-    if (!ds || !ds.target_columns.length) return;
+    if (!ds?.target_columns.length) return;
     if (mode === "regression") {
       form.setFieldsValue({ target_column: ds.target_columns[0] } as Partial<RegressionTrainPayload>);
     } else {
