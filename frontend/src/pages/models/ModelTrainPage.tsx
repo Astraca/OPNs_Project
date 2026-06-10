@@ -90,7 +90,8 @@ export default function ModelTrainPage() {
     setMode(value);
     const algo = defaultAlgorithm(value);
     setSelectedAlgorithm(algo);
-    form.resetFields(["algorithm", "target_columns", "target_column", "pairing_method"]);
+    form.resetFields(["dataset_id", "algorithm", "target_columns", "target_column", "pairing_method"]);
+    setSelectedDatasetId(null);
     form.setFieldsValue({ algorithm: algo, pairing_method: "adjacent" });
     if (selectedDataset?.target_columns.length) {
       if (value === "regression") {
