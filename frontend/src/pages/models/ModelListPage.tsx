@@ -61,11 +61,12 @@ export default function ModelListPage() {
       render: (value: string | null) => displayPairingMethod(value),
     },
     {
-      title: "目标字段", dataIndex: "target_columns", minWidth: 160,
+      title: "目标字段", dataIndex: "target_columns", width: 160,
+      onCell: () => ({ style: { maxWidth: 160 } }),
       render: (targets: string[]) => (
-        <div style={{ overflowX: "auto", whiteSpace: "nowrap", maxWidth: 260 }}>
+        <Typography.Text ellipsis={{ tooltip: targets.map(displayFieldName).join(", ") }}>
           {targets.map(displayFieldName).join(", ")}
-        </div>
+        </Typography.Text>
       ),
     },
     { title: "特征数", dataIndex: "feature_columns", minWidth: 100, render: (features: string[]) => features.length },
