@@ -61,7 +61,7 @@ export default function RegressionBatchPredictionPage() {
         <Form layout="vertical">
           <Form.Item label="回归模型" required>
             <Select
-              placeholder="请选择回归模型"
+              placeholder={models.length ? "请选择回归模型" : "暂无回归模型"}
               options={models.map((m) => ({ label: `${m.model_name} (${m.algorithm})`, value: m.id }))}
               onChange={(v: number) => { setModelId(v); setPendingFile(null); setResult(null); }}
             />

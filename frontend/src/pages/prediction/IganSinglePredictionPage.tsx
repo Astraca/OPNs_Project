@@ -57,7 +57,7 @@ export default function IganSinglePredictionPage() {
       <Form form={form} layout="vertical" className="prediction-form" onFinish={handleSubmit}>
         <Form.Item name="model_id" label="模型" rules={[{ required: true, message: "请选择模型" }]}>
           <Select
-            placeholder="请选择分类模型"
+            placeholder={models.length ? "请选择分类模型" : "暂无分类模型"}
             options={models.map((model) => ({ label: `${model.model_name} (${model.algorithm})`, value: model.id }))}
             onChange={(value: number) => setSelectedModelId(value)}
           />

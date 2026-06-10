@@ -68,7 +68,7 @@ export default function BatchPredictionPage() {
         <Form layout="vertical">
           <Form.Item label="模型" required>
             <Select
-              placeholder="请选择分类模型"
+              placeholder={models.length ? "请选择分类模型" : "暂无分类模型"}
               options={models.map((m) => ({ label: `${m.model_name} (${m.algorithm})`, value: m.id }))}
               onChange={(v: number) => { setModelId(v); setPendingFile(null); setResult(null); }}
             />
