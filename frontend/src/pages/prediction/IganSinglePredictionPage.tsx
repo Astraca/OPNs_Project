@@ -66,7 +66,7 @@ export default function IganSinglePredictionPage() {
           <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <Typography.Text type="secondary">输入特征值</Typography.Text>
-              <Button size="small" onClick={() => { form.resetFields(); setResult(null); setSelectedModelId(null); }}>清空</Button>
+              <Button size="small" onClick={() => { form.resetFields(); setResult(null); }}>清空</Button>
             </div>
             <div className="prediction-features-scroll">
               <Row gutter={[12, 8]}>
