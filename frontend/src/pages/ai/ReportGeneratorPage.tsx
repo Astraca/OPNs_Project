@@ -1,6 +1,7 @@
-import { FileTextOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, FileTextOutlined } from "@ant-design/icons";
 import { Button, Card, Input, Modal, Select, Space, Typography, message } from "antd";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { listModels } from "../../api/models";
 import { generateReport } from "../../api/reports";
@@ -9,6 +10,7 @@ import type { Report } from "../../types/report";
 
 
 export default function ReportGeneratorPage() {
+  const navigate = useNavigate();
   const [models, setModels] = useState<MLModel[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
   const [reportTitle, setReportTitle] = useState("");
@@ -46,7 +48,16 @@ export default function ReportGeneratorPage() {
 
   return (
     <main>
-      <Typography.Title level={3}>实验报告生成器</Typography.Title>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <Typography.Title level={3} style={{ margin: 0 }}>实验报告生成器</Typography.Title>
+        <Button
+          icon={<ArrowLeftOutlined />}
+          style={{ borderColor: "#1677ff", color: "#1677ff" }}
+          onClick={() => navigate("/reports")}
+        >
+          返回
+        </Button>
+      </div>
 
       <Card>
         <Space direction="vertical" style={{ width: "100%" }} size="middle">

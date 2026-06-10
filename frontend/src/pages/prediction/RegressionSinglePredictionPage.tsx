@@ -1,5 +1,7 @@
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import { Alert, Button, Col, Form, InputNumber, Row, Select, Statistic, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { listModels } from "../../api/models";
 import { predictSingleRegression } from "../../api/predictions";
@@ -10,23 +12,35 @@ import "./PredictionPages.css";
 
 
 export default function RegressionSinglePredictionPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromModelId = searchParams.get("modelId");
   const [form] = Form.useForm();
   const [models, setModels] = useState<MLModel[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(true);
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
   const [result, setResult] = useState<RegressionSinglePredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function loadModels() {
+      setModelsLoading(true);
       try {
         const allModels = await listModels();
         setModels(allModels.filter((m) => m.task_type === "regression"));
       } catch {
         message.error("模型列表加载失败");
+      } finally {
+        setModelsLoading(false);
       }
     }
     void loadModels();
-  }, []);
+    const qModelId = Number(fromModelId);
+    if (qModelId) {
+      setSelectedModelId(qModelId);
+      form.setFieldsValue({ model_id: qModelId });
+    }
+  }, [fromModelId, form]);
 
   const selectedModel = useMemo(
     () => models.find((m) => m.id === selectedModelId) ?? null,
@@ -53,11 +67,23 @@ export default function RegressionSinglePredictionPage() {
 
   return (
     <main>
-      <Typography.Title level={3}>回归单样本预测</Typography.Title>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <Typography.Title level={3} style={{ margin: 0 }}>回归单样本预测</Typography.Title>
+        {fromModelId && (
+          <Button
+            icon={<ArrowLeftOutlined />}
+            style={{ borderColor: "#1677ff", color: "#1677ff" }}
+            onClick={() => navigate(`/models/${fromModelId}`)}
+          >
+            返回
+          </Button>
+        )}
+      </div>
       <Form form={form} layout="vertical" className="prediction-form" onFinish={handleSubmit}>
         <Form.Item name="model_id" label="回归模型" rules={[{ required: true, message: "请选择回归模型" }]}>
           <Select
-            placeholder={models.length ? "请选择回归模型" : "暂无回归模型"}
+            loading={modelsLoading}
+            placeholder="请选择回归模型"
             options={models.map((m) => ({ label: `${m.model_name} (${m.algorithm})`, value: m.id }))}
             onChange={(value: number) => { setSelectedModelId(value); setResult(null); }}
           />

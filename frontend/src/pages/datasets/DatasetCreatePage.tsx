@@ -1,4 +1,5 @@
-import { Alert, Button, Form, Input, Select, Typography, message } from "antd";
+import { ArrowLeftOutlined } from "@ant-design/icons";
+import { Alert, Button, Form, Input, Typography, message } from "antd";
 import { useNavigate } from "react-router-dom";
 
 import { createDataset } from "../../api/datasets";
@@ -13,7 +14,7 @@ export default function DatasetCreatePage() {
   async function handleSubmit(values: DatasetCreatePayload) {
     try {
       const dataset = await createDataset(values);
-      message.success("数据集已创建，请上传数据文件并确认目标字段");
+      message.success("数据集已创建，请上传数据文件并在「数据信息」中设置任务类型和说明");
       navigate(`/datasets/${dataset.id}`);
     } catch (err: unknown) {
       const detail =
@@ -26,7 +27,16 @@ export default function DatasetCreatePage() {
 
   return (
     <main>
-      <Typography.Title level={3}>新建数据集</Typography.Title>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <Typography.Title level={3} style={{ margin: 0 }}>新建数据集</Typography.Title>
+        <Button
+          icon={<ArrowLeftOutlined />}
+          style={{ borderColor: "#1677ff", color: "#1677ff" }}
+          onClick={() => navigate("/datasets")}
+        >
+          返回
+        </Button>
+      </div>
       <Form
         form={form}
         layout="vertical"
@@ -36,29 +46,23 @@ export default function DatasetCreatePage() {
         <Form.Item name="name" label="数据集名称" rules={[{ required: true, message: "请输入数据集名称" }]}>
           <Input maxLength={128} placeholder="例如：IgAN 病理数据集、CKD 临床数据" />
         </Form.Item>
-        <Form.Item name="task_type" label="任务类型" rules={[{ required: true, message: "请选择任务类型" }]}>
-          <Select
-            placeholder="请选择任务类型"
-            options={[
-              { label: "多标签分类（如 IgAN M/E/S/T/C）", value: "multi_output_classification" },
-              { label: "单标签分类（如患病/健康）", value: "classification" },
-              { label: "回归预测（如 eGFR、血压值）", value: "regression" },
-            ]}
-          />
-        </Form.Item>
-        <Form.Item name="description" label="说明">
-          <Input.TextArea rows={4} maxLength={2000} placeholder="可选：描述数据来源、字段含义等" />
-        </Form.Item>
         <Alert
           type="info"
           showIcon
-          message="支持的文件格式"
-          description="CSV、XLSX、TXT、DAT、DATA。系统会自动检测分隔符（逗号、制表符、空格等）和表头。上传后请确认目标字段是否正确识别。"
+          message="创建后请上传文件"
+          description="创建数据集后，您需要上传数据文件。任务类型和说明可在「数据信息」页面中设置，字段含义等 AI 辅助信息也可在同一页面中填写。支持 CSV、XLSX 格式，最大 10 MB。"
           style={{ marginBottom: 16 }}
         />
-        <Button type="primary" htmlType="submit">
-          创建数据集
-        </Button>
+        <div style={{ textAlign: "center" }}>
+          <Button
+            type="primary"
+            htmlType="submit"
+            size="large"
+            style={{ borderRadius: 24, padding: "0 48px", height: 48, fontSize: 16 }}
+          >
+            创建数据集
+          </Button>
+        </div>
       </Form>
     </main>
   );

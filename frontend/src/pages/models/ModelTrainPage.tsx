@@ -1,10 +1,10 @@
-import { BulbOutlined, SyncOutlined } from "@ant-design/icons";
-import { Alert, Button, Form, Input, InputNumber, Modal, Select, Slider, Space, Typography, message } from "antd";
+import { ArrowLeftOutlined, BulbOutlined, ReloadOutlined } from "@ant-design/icons";
+import { Alert, Button, Form, Input, InputNumber, Modal, Select, Slider, Space, Tooltip, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { listDatasets } from "../../api/datasets";
-import { generateTrainingSuggestions } from "../../api/ai";
+import { generateTrainingConfigSuggestion } from "../../api/ai";
 import { trainModel, trainRegressionModel } from "../../api/models";
 import type { Dataset } from "../../types/dataset";
 import type { AIAnalysisReport } from "../../types/ai";
@@ -107,6 +107,10 @@ export default function ModelTrainPage() {
 
   const isClassification = mode === "multi_output_classification" || mode === "classification";
 
+  function randomizeSeed() {
+    form.setFieldsValue({ random_state: Math.floor(Math.random() * 1000000) });
+  }
+
   async function handleSubmit(values: ModelTrainPayload | RegressionTrainPayload) {
     setTraining(true);
     try {
@@ -128,21 +132,50 @@ export default function ModelTrainPage() {
     } finally { setTraining(false); }
   }
 
-  async function handleTrainingSuggestion() {
+  async function handleAISuggestion() {
     if (!selectedDatasetId) {
       message.warning("请先选择数据集");
       return;
     }
     setAiSuggesting(true);
     try {
-      const report = await generateTrainingSuggestions(selectedDatasetId);
-      setAiReport(report);
-      setAiModalOpen(true);
-      message.success("AI 训练建议已生成");
+      const report = await generateTrainingConfigSuggestion(selectedDatasetId);
+      const parsed = report.input_summary_json?.parsed_suggestion as Record<string, unknown> | undefined;
+      if (parsed) {
+        const taskSug = parsed.task_suggestion as Record<string, unknown> | undefined;
+        const modelSug = parsed.model_suggestion as Record<string, unknown> | undefined;
+        const warnings = parsed.warnings as string[] | undefined;
+
+        if (taskSug?.task_type === "regression") handleModeChange("regression");
+        const pairing = modelSug?.pairing_method as string | undefined;
+        if (pairing && ["adjacent", "random", "correlation_greedy"].includes(pairing)) {
+          form.setFieldsValue({ pairing_method: pairing as "adjacent" | "random" | "correlation_greedy" });
+        }
+        if (typeof modelSug?.test_size === "number") {
+          form.setFieldsValue({ test_size: modelSug.test_size as number });
+        }
+        const primaryAlgo = modelSug?.primary_model as string | undefined;
+        if (primaryAlgo && (
+          primaryAlgo === "OPNs-SVM" || primaryAlgo === "SVM" || primaryAlgo === "RandomForest"
+          || primaryAlgo === "LogisticRegression" || primaryAlgo === "OPNs-SVR"
+          || primaryAlgo === "SVR" || primaryAlgo === "Ridge"
+        )) {
+          setSelectedAlgorithm(primaryAlgo as ModelAlgorithm);
+          form.setFieldsValue({ algorithm: primaryAlgo });
+        }
+        if (warnings && warnings.length > 0) {
+          setAiReport({ ...report, generated_text: warnings.join("\n\n") });
+          setAiModalOpen(true);
+        }
+        message.success("AI 配置建议已应用");
+      } else {
+        setAiReport(report);
+        setAiModalOpen(true);
+      }
     } catch (err: unknown) {
       const detail = err && typeof err === "object" && "response" in err
         ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail : undefined;
-      message.error(typeof detail === "string" ? detail : "AI 训练建议生成失败");
+      message.error(typeof detail === "string" ? detail : "AI 配置建议生成失败");
     } finally {
       setAiSuggesting(false);
     }
@@ -150,7 +183,26 @@ export default function ModelTrainPage() {
 
   return (
     <main>
-      <Typography.Title level={3}>训练模型</Typography.Title>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <Typography.Title level={3} style={{ margin: 0 }}>训练模型</Typography.Title>
+        <Space>
+          <Button
+            icon={<BulbOutlined />}
+            loading={aiSuggesting}
+            disabled={!selectedDatasetId}
+            onClick={handleAISuggestion}
+          >
+            AI 配置建议
+          </Button>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            style={{ borderColor: "#1677ff", color: "#1677ff" }}
+            onClick={() => navigate("/models")}
+          >
+            返回
+          </Button>
+        </Space>
+      </div>
       <Form
         form={form} layout="vertical" className="model-form"
         initialValues={{ algorithm: "OPNs-SVM", pairing_method: "adjacent", test_size: 0.2, random_state: 42 }}
@@ -180,17 +232,6 @@ export default function ModelTrainPage() {
             style={{ marginBottom: 16 }}
           />
         )}
-
-        <Form.Item>
-          <Button
-            icon={<BulbOutlined />}
-            loading={aiSuggesting}
-            disabled={!selectedDatasetId}
-            onClick={handleTrainingSuggestion}
-          >
-            AI 训练建议
-          </Button>
-        </Form.Item>
 
         <Form.Item name="model_name" label="模型名称" rules={[{ required: true, message: "请输入模型名称" }]}>
           <Input maxLength={128} placeholder="请输入模型名称" />
@@ -250,21 +291,49 @@ export default function ModelTrainPage() {
           </Form.Item>
         )}
 
-        <Form.Item name="test_size" label="测试集比例" initialValue={0.2}
-          rules={[{ required: true }, { validator: (_, v) => v >= 0.1 && v <= 0.4 ? Promise.resolve() : Promise.reject(new Error("测试集比例需在 0.1 ~ 0.4 之间")) }]}>
-          <TestSizeInput />
-        </Form.Item>
-
-        <Form.Item label="随机种子">
-          <Space.Compact>
-            <Form.Item name="random_state" rules={[{ required: true }]} initialValue={42} noStyle>
-              <InputNumber min={0} max={999999} style={{ width: 120 }} />
+        <div style={{ display: "flex", gap: "10%", alignItems: "flex-end" }}>
+          <div style={{ flex: "0 0 60%" }}>
+            <Form.Item name="test_size" label="测试集比例" initialValue={0.2} style={{ marginBottom: 0 }}
+              rules={[{ required: true }, { validator: (_, v) => v >= 0.1 && v <= 0.4 ? Promise.resolve() : Promise.reject(new Error("测试集比例需在 0.1 ~ 0.4 之间")) }]}>
+              <TestSizeInput />
             </Form.Item>
-            <Button icon={<SyncOutlined />} onClick={() => form.setFieldsValue({ random_state: Math.floor(Math.random() * 100000) })} title="随机生成种子" />
-          </Space.Compact>
-        </Form.Item>
+          </div>
+          <div style={{ flex: "0 0 30%" }}>
+            <Form.Item label="随机种子" style={{ marginBottom: 0 }}>
+              <Space.Compact style={{ width: "100%" }}>
+                <Form.Item name="random_state" rules={[{ required: true }]} initialValue={42} noStyle>
+                  <InputNumber
+                    min={0}
+                    max={999999}
+                    className="random-seed-input"
+                    style={{ width: "calc(100% - 53px)", height: 53 }}
+                  />
+                </Form.Item>
+                <Tooltip title="随机生成种子">
+                  <Button
+                    aria-label="随机生成种子"
+                    icon={<ReloadOutlined />}
+                    onClick={randomizeSeed}
+                    style={{ width: 53, height: 53 }}
+                  />
+                </Tooltip>
+              </Space.Compact>
+            </Form.Item>
+          </div>
+        </div>
+        <div style={{ height: 24 }} />
 
-        <Button type="primary" htmlType="submit" loading={training}>开始训练</Button>
+        <div style={{ textAlign: "center" }}>
+          <Button
+            type="primary"
+            htmlType="submit"
+            loading={training}
+            size="large"
+            style={{ borderRadius: 24, padding: "0 48px", height: 48, fontSize: 16 }}
+          >
+            开始训练
+          </Button>
+        </div>
       </Form>
       <Modal
         title="AI 训练建议"

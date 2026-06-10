@@ -1,3 +1,4 @@
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import { Button, Table, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
@@ -55,7 +56,13 @@ export default function DatasetPreviewPage() {
           <Typography.Title level={3}>数据预览</Typography.Title>
           <Typography.Text type="secondary">默认展示前 50 行，共 {preview?.total_rows ?? 0} 行。</Typography.Text>
         </div>
-        <Button onClick={() => navigate(`/datasets/${datasetId}`)}>返回详情</Button>
+        <Button
+          icon={<ArrowLeftOutlined />}
+          style={{ borderColor: "#1677ff", color: "#1677ff" }}
+          onClick={() => navigate(`/datasets/${datasetId}`)}
+        >
+          返回
+        </Button>
       </div>
       <Table
         rowKey="__row_id"

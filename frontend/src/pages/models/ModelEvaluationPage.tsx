@@ -1,4 +1,5 @@
-import { Button, Descriptions, Empty, Space, Table, Typography, message } from "antd";
+import { ArrowLeftOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import { Alert, Button, Descriptions, Empty, Space, Table, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -43,6 +44,14 @@ type MetricRow = {
   f1?: number;
 };
 
+type RegMetricRow = {
+  target_name: string;
+  mae: number;
+  rmse: number;
+  r2: number;
+  mape: string;
+};
+
 export default function ModelEvaluationPage() {
   const { id } = useParams();
   const modelId = Number(id);
@@ -52,6 +61,10 @@ export default function ModelEvaluationPage() {
   const [aiReport, setAiReport] = useState<AIAnalysisReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [generatingAI, setGeneratingAI] = useState(false);
+  const CLS_HELP_KEY = "metrics_show_cls_help";
+  const REG_HELP_KEY = "metrics_show_reg_help";
+  const [showClsHelp, setShowClsHelp] = useState(() => localStorage.getItem(CLS_HELP_KEY) !== "false");
+  const [showRegHelp, setShowRegHelp] = useState(() => localStorage.getItem(REG_HELP_KEY) !== "false");
 
   // Classification charts
   const [confusionMatrices, setConfusionMatrices] = useState<ConfusionMatrixData[]>([]);
@@ -133,6 +146,24 @@ export default function ModelEvaluationPage() {
     { title: "F1", dataIndex: "f1", render: (v: number | undefined) => v?.toFixed(4) ?? "-" },
   ];
 
+  const regMetricRow: RegMetricRow | null = useMemo(() => {
+    if (!regressionMetric) return null;
+    const row: Record<string, unknown> = { target_name: model?.target_columns[0] ?? "target" };
+    row.mae = regressionMetric.mae;
+    row.rmse = regressionMetric.rmse;
+    row.r2 = regressionMetric.r2;
+    row.mape = regressionMetric.mape != null ? `${regressionMetric.mape.toFixed(2)}%` : "-";
+    return row as unknown as RegMetricRow;
+  }, [regressionMetric, model]);
+
+  const regressionColumns: ColumnsType<RegMetricRow> = [
+    { title: "目标", dataIndex: "target_name" },
+    { title: "MAE", dataIndex: "mae", render: (v: number) => v?.toFixed(4) },
+    { title: "RMSE", dataIndex: "rmse", render: (v: number) => v?.toFixed(4) },
+    { title: "R²", dataIndex: "r2", render: (v: number) => v?.toFixed(4) },
+    { title: "MAPE", dataIndex: "mape", render: (v: string) => v },
+  ];
+
   async function handleGenerateAI() {
     setGeneratingAI(true);
     try {
@@ -151,7 +182,13 @@ export default function ModelEvaluationPage() {
         <Typography.Title level={3}>模型评估</Typography.Title>
         <Space>
           <Button onClick={handleGenerateAI} loading={generatingAI}>生成 AI 结果分析</Button>
-          <Button onClick={() => navigate("/models")}>返回模型列表</Button>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            style={{ borderColor: "#1677ff", color: "#1677ff" }}
+            onClick={() => navigate("/models")}
+          >
+            返回
+          </Button>
         </Space>
       </div>
       <AIReportPanel report={aiReport} />
@@ -169,44 +206,47 @@ export default function ModelEvaluationPage() {
         </Descriptions>
       )}
 
-      {/* Classification metrics */}
+      {/* Classification metrics — first section */}
       {!isRegression && (
         <>
+          <section className="model-section">
+            <Typography.Title level={4}>分类指标</Typography.Title>
+            {showClsHelp && (
+              <Alert
+                type="info"
+                showIcon
+                icon={<InfoCircleOutlined />}
+                closable
+                onClose={() => { setShowClsHelp(false); localStorage.setItem(CLS_HELP_KEY, "false"); }}
+                message="指标说明"
+                description={
+                  <div style={{ lineHeight: 1.8 }}>
+                    <div><strong>Accuracy（准确率）</strong>：预测正确的样本占比，0~1，越高越好。类别不均衡时可能失真。</div>
+                    <div><strong>Precision（精确率）</strong>：预测为正例中真正为正例的比例，0~1，越高误报越少。</div>
+                    <div><strong>Recall（召回率）</strong>：真正例中被正确识别的比例，0~1，越高漏报越少。</div>
+                    <div><strong>F1-score</strong>：Precision 与 Recall 的调和均值，0~1，综合衡量模型性能。</div>
+                  </div>
+                }
+                style={{ marginBottom: 16 }}
+              />
+            )}
+            {!showClsHelp && (
+              <Button
+                type="link"
+                size="small"
+                icon={<InfoCircleOutlined />}
+                onClick={() => { setShowClsHelp(true); localStorage.setItem(CLS_HELP_KEY, "true"); }}
+                style={{ marginBottom: 8, padding: 0 }}
+              >
+                显示指标说明
+              </Button>
+            )}
+            <Table rowKey="target_name" columns={classificationColumns} dataSource={metricRows} loading={loading} pagination={false} />
+          </section>
           <section className="model-section">
             <Typography.Title level={4}>指标对比</Typography.Title>
             <ModelMetricsBarChart metrics={classificationMetrics} />
           </section>
-          <section className="model-section">
-            <Typography.Title level={4}>分类指标</Typography.Title>
-            <Table rowKey="target_name" columns={classificationColumns} dataSource={metricRows} loading={loading} />
-          </section>
-        </>
-      )}
-
-      {/* Regression metrics */}
-      {isRegression && regressionMetric && (
-        <>
-          <section className="model-section">
-            <Typography.Title level={4}>回归指标</Typography.Title>
-            <Descriptions bordered size="small" column={4}>
-              <Descriptions.Item label="MAE">{regressionMetric.mae.toFixed(4)}</Descriptions.Item>
-              <Descriptions.Item label="RMSE">{regressionMetric.rmse.toFixed(4)}</Descriptions.Item>
-              <Descriptions.Item label="R²">{regressionMetric.r2.toFixed(4)}</Descriptions.Item>
-              <Descriptions.Item label="MAPE">
-                {regressionMetric.mape != null ? `${regressionMetric.mape.toFixed(2)}%` : "-"}
-              </Descriptions.Item>
-            </Descriptions>
-          </section>
-          <section className="model-section">
-            <Typography.Title level={4}>指标对比</Typography.Title>
-            <RegressionMetricsBarChart metrics={regressionMetric} />
-          </section>
-        </>
-      )}
-
-      {/* Classification charts */}
-      {!isRegression && (
-        <>
           <section className="model-section">
             <Typography.Title level={4}>混淆矩阵</Typography.Title>
             {confusionMatrices.length > 0 ? (
@@ -226,9 +266,49 @@ export default function ModelEvaluationPage() {
         </>
       )}
 
-      {/* Regression charts */}
-      {isRegression && (
+      {/* Regression metrics — first section */}
+      {isRegression && regressionMetric && (
         <>
+          <section className="model-section">
+            <Typography.Title level={4}>回归指标</Typography.Title>
+            {showRegHelp && (
+              <Alert
+                type="info"
+                showIcon
+                icon={<InfoCircleOutlined />}
+                closable
+                onClose={() => { setShowRegHelp(false); localStorage.setItem(REG_HELP_KEY, "false"); }}
+                message="指标说明"
+                description={
+                  <div style={{ lineHeight: 1.8 }}>
+                    <div><strong>MAE（平均绝对误差）</strong>：预测值与真实值之差的绝对值的均值，≥0，越小越好。与目标同单位，直观反映平均误差大小。</div>
+                    <div><strong>RMSE（均方根误差）</strong>：误差平方均值的平方根，≥0，越小越好。对大误差更敏感。</div>
+                    <div><strong>R²（决定系数）</strong>：模型解释的变异比例，通常 0~1，越接近 1 拟合越好。负值表示模型不如均值预测。</div>
+                    <div><strong>MAPE（平均绝对百分比误差）</strong>：误差占真实值的百分比均值，≥0%，越小越好。不同量纲数据间可比较。</div>
+                  </div>
+                }
+                style={{ marginBottom: 16 }}
+              />
+            )}
+            {!showRegHelp && (
+              <Button
+                type="link"
+                size="small"
+                icon={<InfoCircleOutlined />}
+                onClick={() => { setShowRegHelp(true); localStorage.setItem(REG_HELP_KEY, "true"); }}
+                style={{ marginBottom: 8, padding: 0 }}
+              >
+                显示指标说明
+              </Button>
+            )}
+            {regMetricRow && (
+              <Table rowKey="target_name" columns={regressionColumns} dataSource={[regMetricRow]} loading={loading} pagination={false} />
+            )}
+          </section>
+          <section className="model-section">
+            <Typography.Title level={4}>指标对比</Typography.Title>
+            <RegressionMetricsBarChart metrics={regressionMetric} />
+          </section>
           <section className="model-section">
             <Typography.Title level={4}>真实值-预测值散点图</Typography.Title>
             {predictedVsActual ? (

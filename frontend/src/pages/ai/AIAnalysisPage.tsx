@@ -1,14 +1,20 @@
-import { BarChartOutlined, DatabaseOutlined, FileTextOutlined } from "@ant-design/icons";
-import { Button, Card, Select, Space, Spin, Typography, message } from "antd";
+import {
+  ArrowLeftOutlined,
+  BarChartOutlined,
+  DatabaseOutlined,
+  FileTextOutlined,
+  WarningOutlined,
+} from "@ant-design/icons";
+import { Alert, Button, Card, List, Select, Space, Spin, Tag, Typography, message } from "antd";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { generateDatasetAnalysis } from "../../api/ai";
+import { generateDatasetAnalysis, runPrivacyScan } from "../../api/ai";
 import { listDatasets } from "../../api/datasets";
 import { generateModelAnalysis } from "../../api/ai";
 import { listModels } from "../../api/models";
 import AIReportPanel from "./AIReportPanel";
-import type { AIAnalysisReport } from "../../types/ai";
+import type { AIAnalysisReport, PrivacyFieldItem } from "../../types/ai";
 import type { Dataset } from "../../types/dataset";
 import type { MLModel } from "../../types/model";
 
@@ -19,7 +25,21 @@ type AIAnalysisPageProps = {
   initialMode?: TabMode;
 };
 
+const RISK_COLORS: Record<string, string> = {
+  high: "red",
+  medium: "orange",
+  low: "green",
+};
+
+const CLASS_LABELS: Record<string, string> = {
+  direct_identifier: "身份标识",
+  quasi_identifier: "准标识符",
+  sensitive_medical: "医学敏感",
+  normal_modeling: "正常",
+};
+
 export default function AIAnalysisPage({ initialMode = "dataset" }: AIAnalysisPageProps) {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryMode = searchParams.get("mode") === "model" ? "model" : null;
   const [mode, setMode] = useState<TabMode>(queryMode ?? initialMode);
@@ -29,6 +49,12 @@ export default function AIAnalysisPage({ initialMode = "dataset" }: AIAnalysisPa
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
   const [report, setReport] = useState<AIAnalysisReport | null>(null);
   const [generating, setGenerating] = useState(false);
+
+  // Privacy scan state
+  const [privacyFields, setPrivacyFields] = useState<PrivacyFieldItem[]>([]);
+  const [privacySummary, setPrivacySummary] = useState<string>("");
+  const [hasDirectIds, setHasDirectIds] = useState(false);
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -43,6 +69,27 @@ export default function AIAnalysisPage({ initialMode = "dataset" }: AIAnalysisPa
     }
     void load();
   }, []);
+
+  async function handleDatasetChange(id: number) {
+    setSelectedDsId(id);
+    setReport(null);
+    setPrivacyFields([]);
+    setPrivacySummary("");
+    setHasDirectIds(false);
+    if (id == null) return;
+
+    setScanning(true);
+    try {
+      const result = await runPrivacyScan(id);
+      setPrivacyFields(result.classifications);
+      setPrivacySummary(result.risk_summary);
+      setHasDirectIds(result.has_direct_identifiers);
+    } catch {
+      // Non-blocking
+    } finally {
+      setScanning(false);
+    }
+  }
 
   async function handleGenerateDs() {
     if (!selectedDsId) return;
@@ -70,9 +117,25 @@ export default function AIAnalysisPage({ initialMode = "dataset" }: AIAnalysisPa
     }
   }
 
+  const highRiskFields = privacyFields.filter(
+    (f) => f.classification === "direct_identifier",
+  );
+  const mediumRiskFields = privacyFields.filter(
+    (f) => f.classification === "quasi_identifier" || f.classification === "sensitive_medical",
+  );
+
   return (
     <main>
-      <Typography.Title level={3}>AI 辅助分析</Typography.Title>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <Typography.Title level={3} style={{ margin: 0 }}>AI 辅助分析</Typography.Title>
+        <Button
+          icon={<ArrowLeftOutlined />}
+          style={{ borderColor: "#1677ff", color: "#1677ff" }}
+          onClick={() => navigate("/dashboard")}
+        >
+          返回
+        </Button>
+      </div>
 
       <Card style={{ marginBottom: 16 }}>
         <Space wrap>
@@ -101,7 +164,7 @@ export default function AIAnalysisPage({ initialMode = "dataset" }: AIAnalysisPa
                 placeholder="选择数据集"
                 style={{ width: 360 }}
                 value={selectedDsId}
-                onChange={setSelectedDsId}
+                onChange={handleDatasetChange}
                 options={datasets.map((d) => ({
                   label: `${d.name} (${d.sample_count} 行)`,
                   value: d.id,
@@ -111,12 +174,79 @@ export default function AIAnalysisPage({ initialMode = "dataset" }: AIAnalysisPa
                 type="primary"
                 icon={<FileTextOutlined />}
                 loading={generating}
-                disabled={!selectedDsId}
+                disabled={!selectedDsId || hasDirectIds}
                 onClick={handleGenerateDs}
               >
                 生成分析
               </Button>
             </Space>
+
+            {scanning && <Spin tip="正在扫描隐私风险..." />}
+
+            {!scanning && hasDirectIds && (
+              <Alert
+                type="error"
+                showIcon
+                icon={<WarningOutlined />}
+                message="检测到身份标识字段"
+                description={
+                  <>
+                    <p>{privacySummary}</p>
+                    <p>
+                      请先在数据集详情页将这些字段角色设为「忽略」后再进行 AI 分析。
+                      身份标识字段不应发送给外部 AI 模型。
+                    </p>
+                    <List
+                      size="small"
+                      dataSource={highRiskFields}
+                      renderItem={(item) => (
+                        <List.Item>
+                          <Tag color="red">{CLASS_LABELS[item.classification]}</Tag>
+                          {item.field} — {item.reason}
+                        </List.Item>
+                      )}
+                    />
+                  </>
+                }
+                style={{ marginTop: 12 }}
+              />
+            )}
+
+            {!scanning && !hasDirectIds && privacyFields.length > 0 && mediumRiskFields.length > 0 && (
+              <Alert
+                type="warning"
+                showIcon
+                message="隐私提示"
+                description={
+                  <>
+                    <p>{privacySummary}</p>
+                    <List
+                      size="small"
+                      dataSource={mediumRiskFields}
+                      renderItem={(item) => (
+                        <List.Item>
+                          <Tag color={RISK_COLORS[item.risk_level]}>
+                            {CLASS_LABELS[item.classification]}
+                          </Tag>
+                          {item.field} — {item.reason}
+                        </List.Item>
+                      )}
+                    />
+                  </>
+                }
+                style={{ marginTop: 12 }}
+              />
+            )}
+
+            {!scanning && !hasDirectIds && privacyFields.length > 0 && mediumRiskFields.length === 0 && (
+              <Alert
+                type="success"
+                showIcon
+                message="隐私扫描通过 — 未检测到高风险字段"
+                style={{ marginTop: 12 }}
+              />
+            )}
+
             {generating && <Spin tip="正在生成 AI 分析..." />}
             <AIReportPanel report={report} />
           </Space>

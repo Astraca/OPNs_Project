@@ -93,3 +93,32 @@ export async function getNumericDistributionChart(id: number) {
   );
   return data;
 }
+
+export async function getDatasetContext(id: number) {
+  const { data } = await request.get<import("../types/dataset").DatasetContext>(
+    `/datasets/${id}/context`,
+  );
+  return data;
+}
+
+export async function saveDatasetContext(
+  id: number,
+  payload: import("../types/dataset").DatasetContextPayload,
+) {
+  const { data } = await request.post<import("../types/dataset").DatasetContext>(
+    `/datasets/${id}/context`,
+    payload,
+  );
+  return data;
+}
+
+export async function updateDatasetContext(
+  id: number,
+  payload: import("../types/dataset").DatasetContextPayload,
+) {
+  const { data } = await request.put<import("../types/dataset").DatasetContext>(
+    `/datasets/${id}/context`,
+    payload,
+  );
+  return data;
+}

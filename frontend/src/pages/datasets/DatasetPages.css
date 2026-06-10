@@ -6,8 +6,58 @@
   margin-bottom: 16px;
 }
 
+/* ── Collapsible circular toolbar buttons ────────────────────────────────── */
+
+.dataset-toolbar .collapsible-btn {
+  width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  border-radius: 50%;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              border-radius 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 14px;
+}
+
+/* Override Ant Design icon margin when collapsed */
+.dataset-toolbar .collapsible-btn > .ant-btn-icon {
+  margin-inline-end: 0 !important;
+  flex-shrink: 0;
+}
+
+.dataset-toolbar .collapsible-btn:not(:disabled):hover {
+  width: 172px !important;
+  border-radius: 8px;
+  padding: 0 14px !important;
+  justify-content: flex-start;
+}
+
+.dataset-toolbar .collapsible-btn .btn-label {
+  flex-shrink: 0;
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              margin 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 14px;
+  margin-left: 0;
+}
+
+.dataset-toolbar .collapsible-btn:hover .btn-label {
+  width: 130px;
+  opacity: 1;
+  margin-left: 6px;
+}
+
 .dataset-form {
   max-width: 640px;
+  margin: 0 auto;
   padding: 24px;
   background: #ffffff;
   border: 1px solid #e5e7eb;

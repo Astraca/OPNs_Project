@@ -61,6 +61,11 @@ const TEMPLATE_TYPE_LABELS: Record<string, string> = {
   prediction_explanation: "预测说明",
   dataset_role_suggestions: "字段角色建议",
   training_suggestions: "训练参数建议",
+  field_analysis: "字段分析",
+  training_config_suggestion: "训练配置建议",
+  batch_prediction_analysis: "批量预测分析",
+  opns_pairing_analysis: "OPNs 配对分析",
+  chart_interpretation: "图表解读",
 };
 
 const TEMPLATE_TYPE_HELP: Record<string, string> = {
@@ -74,6 +79,16 @@ const TEMPLATE_TYPE_HELP: Record<string, string> = {
     "提交给 AI：字段名称、类型、当前角色、缺失率、唯一值数量、基础统计和规则建议。可用变量：{task_type}, {target_columns}, {column_summary}。",
   training_suggestions:
     "提交给 AI：数据集任务类型、样本量、字段角色统计、目标字段、高缺失字段和规则训练建议。可用变量：{dataset_context}。",
+  field_analysis:
+    "提交给 AI：字段统计摘要、字段含义、目标变量、隐私扫描结果。可用变量：{field_statistics}, {feature_descriptions}, {target_columns}, {target_descriptions}, {privacy_scan_result}。要求 AI 输出结构化 JSON 数组。",
+  training_config_suggestion:
+    "提交给 AI：数据集摘要、字段分析结果、标签分布、可选模型。可用变量：{dataset_profile}, {field_recommendations}, {target_columns}, {label_distribution}, {dataset_context}。要求 AI 输出结构化 JSON。",
+  batch_prediction_analysis:
+    "提交给 AI：批量预测摘要、预测标签分布、模型整体指标。可用变量：{batch_prediction_summary}, {predicted_label_distribution}, {model_metrics_summary}, {dataset_context}。",
+  opns_pairing_analysis:
+    "提交给 AI：OPNs 配置、特征配对、模型指标、基线对比。可用变量：{dataset_context}, {opns_config}, {pairing_summary}, {model_metrics}, {baseline_comparison}。",
+  chart_interpretation:
+    "提交给 AI：图表类型、图表标题、图表数据摘要、数据集背景。可用变量：{chart_type}, {chart_title}, {chart_data_summary}, {dataset_context}。",
 };
 
 export default function AIConfigPage() {

@@ -1,8 +1,9 @@
-import { InboxOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, InboxOutlined } from "@ant-design/icons";
 import { Alert, Button, Form, Select, Space, Spin, Table, Tag, Typography, Upload, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { UploadProps } from "antd";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { listModels } from "../../api/models";
 import { runBatchRegressionPrediction } from "../../api/predictions";
@@ -14,15 +15,28 @@ import "./PredictionPages.css";
 const { Dragger } = Upload;
 
 export default function RegressionBatchPredictionPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromModelId = searchParams.get("modelId");
   const [models, setModels] = useState<MLModel[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(true);
   const [modelId, setModelId] = useState<number | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [result, setResult] = useState<BatchPredictionResponse | null>(null);
   const [predicting, setPredicting] = useState(false);
 
   useEffect(() => {
-    (async () => { try { const all = await listModels(); setModels(all.filter(m => m.task_type === "regression")); } catch { message.error("模型列表加载失败"); } })();
-  }, []);
+    (async () => {
+      setModelsLoading(true);
+      try {
+        const all = await listModels();
+        setModels(all.filter(m => m.task_type === "regression"));
+        const qModelId = Number(fromModelId);
+        if (qModelId) setModelId(qModelId);
+      } catch { message.error("模型列表加载失败"); }
+      finally { setModelsLoading(false); }
+    })();
+  }, [fromModelId]);
 
   const uploadProps: UploadProps = {
     accept: ".csv,.xlsx,.txt,.dat,.data", showUploadList: false,
@@ -56,12 +70,24 @@ export default function RegressionBatchPredictionPage() {
 
   return (
     <main>
-      <Typography.Title level={3}>回归批量预测</Typography.Title>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <Typography.Title level={3} style={{ margin: 0 }}>回归批量预测</Typography.Title>
+        {fromModelId && (
+          <Button
+            icon={<ArrowLeftOutlined />}
+            style={{ borderColor: "#1677ff", color: "#1677ff" }}
+            onClick={() => navigate(`/models/${fromModelId}`)}
+          >
+            返回
+          </Button>
+        )}
+      </div>
       <section className="prediction-form">
         <Form layout="vertical">
           <Form.Item label="回归模型" required>
             <Select
-              placeholder={models.length ? "请选择回归模型" : "暂无回归模型"}
+              loading={modelsLoading}
+              placeholder="请选择回归模型"
               options={models.map((m) => ({ label: `${m.model_name} (${m.algorithm})`, value: m.id }))}
               onChange={(v: number) => { setModelId(v); setPendingFile(null); setResult(null); }}
             />

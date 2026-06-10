@@ -1,11 +1,10 @@
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import { Alert, Button, Col, Row, Space, Statistic, Table, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import {
-  generateDatasetAnalysis,
-} from "../../api/ai";
+import { request } from "../../api/request";
 import {
   getCorrelationMatrixChart,
   getDatasetProfile,
@@ -43,6 +42,7 @@ export default function DatasetProfilePage() {
   const [numericStats, setNumericStats] = useState<NumericStatisticsItem[]>([]);
   const [numericDist, setNumericDist] = useState<NumericDistributionData | null>(null);
   const [aiReport, setAiReport] = useState<AIAnalysisReport | null>(null);
+  const [aiExists, setAiExists] = useState(false);
   const [loading, setLoading] = useState(false);
   const [generatingAI, setGeneratingAI] = useState(false);
 
@@ -95,6 +95,14 @@ export default function DatasetProfilePage() {
 
     if (Number.isFinite(datasetId)) {
       void loadProfile();
+      // Try loading existing AI analysis
+      (async () => {
+        try {
+          const { data } = await request.get<AIAnalysisReport>(`/ai/dataset-analysis/${datasetId}`);
+          setAiReport(data);
+          setAiExists(true);
+        } catch { /* no existing analysis */ }
+      })();
     }
   }, [datasetId]);
 
@@ -110,7 +118,9 @@ export default function DatasetProfilePage() {
   async function handleGenerateAI() {
     setGeneratingAI(true);
     try {
-      setAiReport(await generateDatasetAnalysis(datasetId));
+      const { data } = await request.post<AIAnalysisReport>(`/ai/dataset-analysis/${datasetId}`);
+      setAiReport(data);
+      setAiExists(true);
       message.success("AI 数据分析已生成");
     } catch {
       message.error("AI 数据分析生成失败");
@@ -127,8 +137,16 @@ export default function DatasetProfilePage() {
           <Typography.Text type="secondary">{profile?.dataset.name ?? "数据集质量与分布统计"}</Typography.Text>
         </div>
         <Space>
-          <Button onClick={handleGenerateAI} loading={generatingAI}>生成 AI 数据分析</Button>
-          <Button onClick={() => navigate(`/datasets/${datasetId}`)}>返回详情</Button>
+          <Button onClick={handleGenerateAI} loading={generatingAI}>
+            {aiExists ? "重新 AI 分析" : "生成 AI 数据分析"}
+          </Button>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            style={{ borderColor: "#1677ff", color: "#1677ff" }}
+            onClick={() => navigate(`/datasets/${datasetId}`)}
+          >
+            返回
+          </Button>
         </Space>
       </div>
       <AIReportPanel report={aiReport} />

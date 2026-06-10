@@ -3,7 +3,7 @@ import { Button, Descriptions, Modal, Popconfirm, Space, Table, Tag, Typography,
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState } from "react";
 
-import { generatePredictionExplanation } from "../../api/ai";
+import { generateBatchPredictionAnalysis, generatePredictionExplanation } from "../../api/ai";
 import { deletePrediction, getPredictionDetail, listPredictionJobs } from "../../api/predictions";
 import { listModels } from "../../api/models";
 import AIReportPanel from "../ai/AIReportPanel";
@@ -64,6 +64,15 @@ export default function PredictionHistoryPage() {
       message.success("AI 预测说明已生成");
     } catch {
       message.error("AI 预测说明生成失败");
+    }
+  }
+
+  async function handleBatchAnalysis(jobId: number) {
+    try {
+      setAiReport(await generateBatchPredictionAnalysis(jobId));
+      message.success("AI 批量预测分析已生成");
+    } catch {
+      message.error("AI 批量预测分析生成失败");
     }
   }
 
@@ -132,13 +141,22 @@ export default function PredictionHistoryPage() {
             说明
           </Button>
           {(record.job_type === "batch" || record.job_type === "regression_batch") && (
-            <Button
-              size="small"
-              icon={<DownloadOutlined />}
-              onClick={() => handleDownload(record.id)}
-            >
-              导出
-            </Button>
+            <>
+              <Button
+                size="small"
+                icon={<FileTextOutlined />}
+                onClick={() => handleBatchAnalysis(record.id)}
+              >
+                批量分析
+              </Button>
+              <Button
+                size="small"
+                icon={<DownloadOutlined />}
+                onClick={() => handleDownload(record.id)}
+              >
+                导出
+              </Button>
+            </>
           )}
           <Popconfirm title="确定删除此预测记录？" onConfirm={() => handleDelete(record.id)}>
             <Button size="small" danger icon={<DeleteOutlined />} />

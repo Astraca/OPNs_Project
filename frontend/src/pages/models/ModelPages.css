@@ -8,6 +8,7 @@
 
 .model-form {
   max-width: 720px;
+  margin: 0 auto;
   padding: 24px;
   background: #ffffff;
   border: 1px solid #e5e7eb;
@@ -20,4 +21,23 @@
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
+}
+
+/* Subtle hover / active for toolbar buttons */
+.model-toolbar .ant-btn {
+  transition: filter 0.2s ease, opacity 0.2s ease, transform 0.15s ease;
+}
+
+.model-toolbar .ant-btn:hover:not(:disabled) {
+  filter: brightness(0.94);
+}
+
+.model-toolbar .ant-btn:active:not(:disabled) {
+  filter: brightness(0.88);
+  transform: scale(0.97);
+}
+
+.random-seed-input .ant-input-number-input {
+  height: 51px;
+  line-height: 51px;
 }

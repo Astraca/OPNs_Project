@@ -97,3 +97,28 @@ export type NumericDistributionData = {
   columns: string[];
   distributions: Record<string, NumericDistributionItem>;
 };
+
+export type DatasetContext = {
+  id: number;
+  dataset_id: number;
+  user_id: number;
+  dataset_source: string | null;
+  scenario_description: string | null;
+  inclusion_criteria: string | null;
+  exclusion_criteria: string | null;
+  feature_descriptions: Record<string, string>;
+  target_descriptions: Record<string, string>;
+  usage_notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DatasetContextPayload = {
+  dataset_source?: string | null;
+  scenario_description?: string | null;
+  inclusion_criteria?: string | null;
+  exclusion_criteria?: string | null;
+  feature_descriptions?: Record<string, string>;
+  target_descriptions?: Record<string, string>;
+  usage_notes?: string | null;
+};

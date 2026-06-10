@@ -5,7 +5,9 @@ import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import DatasetCreatePage from "../pages/datasets/DatasetCreatePage";
+import DatasetContextPage from "../pages/datasets/DatasetContextPage";
 import DatasetDetailPage from "../pages/datasets/DatasetDetailPage";
+import FieldAnalysisPage from "../pages/datasets/FieldAnalysisPage";
 import DatasetListPage from "../pages/datasets/DatasetListPage";
 import DatasetPreviewPage from "../pages/datasets/DatasetPreviewPage";
 import DatasetProfilePage from "../pages/datasets/DatasetProfilePage";
@@ -41,6 +43,8 @@ export const router = createBrowserRouter([
           { path: "datasets", element: <DatasetListPage /> },
           { path: "datasets/create", element: <DatasetCreatePage /> },
           { path: "datasets/:id", element: <DatasetDetailPage /> },
+          { path: "datasets/:id/context", element: <DatasetContextPage /> },
+          { path: "datasets/:id/field-analysis", element: <FieldAnalysisPage /> },
           { path: "datasets/:id/preview", element: <DatasetPreviewPage /> },
           { path: "datasets/:id/profile", element: <DatasetProfilePage /> },
           { path: "models", element: <ModelListPage /> },
