@@ -1,4 +1,4 @@
-import { Alert, Button, Col, Form, InputNumber, Row, Select, Statistic, Typography, message } from "antd";
+import { Alert, Button, Col, Form, InputNumber, Row, Select, Space, Statistic, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 
 import { listModels } from "../../api/models";
@@ -75,9 +75,10 @@ export default function IganSinglePredictionPage() {
             </Row>
           </div>
         )}
-        <Button type="primary" htmlType="submit" loading={loading}>
-          开始预测
-        </Button>
+        <Space>
+          <Button type="primary" htmlType="submit" loading={loading}>开始预测</Button>
+          <Button onClick={() => { form.resetFields(); setResult(null); }}>清空</Button>
+        </Space>
       </Form>
 
       {result && (
