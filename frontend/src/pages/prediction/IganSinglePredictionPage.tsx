@@ -59,7 +59,7 @@ export default function IganSinglePredictionPage() {
           <Select
             placeholder={models.length ? "请选择分类模型" : "暂无分类模型"}
             options={models.map((model) => ({ label: `${model.model_name} (${model.algorithm})`, value: model.id }))}
-            onChange={(value: number) => setSelectedModelId(value)}
+            onChange={(value: number) => { setSelectedModelId(value); form.resetFields(); setResult(null); }}
           />
         </Form.Item>
         {selectedModel && (
