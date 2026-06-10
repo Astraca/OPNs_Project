@@ -1,4 +1,4 @@
-import { Alert, Button, Col, Form, InputNumber, Row, Select, Space, Statistic, Typography, message } from "antd";
+import { Alert, Button, Col, Form, InputNumber, Row, Select, Statistic, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 
 import { listModels } from "../../api/models";
@@ -63,20 +63,27 @@ export default function RegressionSinglePredictionPage() {
           />
         </Form.Item>
         {selectedModel && (
-          <Row gutter={16}>
-            {selectedModel.feature_columns.map((feature) => (
-              <Col xs={24} md={8} key={feature}>
-                <Form.Item name={feature} label={displayFieldName(feature)}>
-                  <InputNumber style={{ width: "100%" }} />
-                </Form.Item>
-              </Col>
-            ))}
-          </Row>
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <Typography.Text type="secondary">输入特征值</Typography.Text>
+              <Button size="small" onClick={() => { form.resetFields(); setResult(null); setSelectedModelId(null); }}>清空</Button>
+            </div>
+            <div className="prediction-features-scroll">
+              <Row gutter={[12, 8]}>
+                {selectedModel.feature_columns.map((feature) => (
+                  <Col xs={12} md={8} lg={6} key={feature}>
+                    <Form.Item name={feature} label={displayFieldName(feature)} style={{ marginBottom: 8 }}>
+                      <InputNumber style={{ width: "100%" }} placeholder="输入值" />
+                    </Form.Item>
+                  </Col>
+                ))}
+              </Row>
+            </div>
+          </>
         )}
-        <Space>
-          <Button type="primary" htmlType="submit" loading={loading} disabled={!selectedModelId}>开始预测</Button>
-          <Button onClick={() => { form.resetFields(); setResult(null); }}>清空</Button>
-        </Space>
+        <Button type="primary" htmlType="submit" loading={loading} disabled={!selectedModelId} style={{ marginTop: 12 }}>
+          开始预测
+        </Button>
       </Form>
 
       {result && (
