@@ -10,6 +10,5 @@ export type Report = {
 };
 
 export type ReportGeneratePayload = {
-  model_id: number;
   title?: string;
 };

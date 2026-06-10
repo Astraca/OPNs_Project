@@ -46,12 +46,18 @@ const navItems: NavItem[] = [
     icon: <BulbOutlined />,
     label: "AI 分析",
     children: [
-      { key: "/ai/dataset-analysis", label: "数据集分析" },
-      { key: "/ai/model-analysis", label: "模型分析" },
-      { key: "/ai/report-generator", label: "报告生成" },
+      { key: "/ai/analysis", label: "AI 辅助分析" },
     ],
   },
-  { key: "/reports", icon: <BarChartOutlined />, label: "分析报告" },
+  {
+    key: "reports-group",
+    icon: <BarChartOutlined />,
+    label: "实验报告",
+    children: [
+      { key: "/reports", label: "报告列表" },
+      { key: "/reports/generate", label: "生成报告" },
+    ],
+  },
   {
     key: "settings-group",
     icon: <SettingOutlined />,
@@ -82,7 +88,9 @@ export default function AppLayout() {
   const clearSession = useAuthStore((state) => state.clearSession);
 
   const leafKeys = collectLeafKeys(navItems);
-  const selectedKey = leafKeys.find((key) => location.pathname.startsWith(key)) ?? "/dashboard";
+  const selectedKey = leafKeys
+    .filter((key) => location.pathname === key || location.pathname.startsWith(`${key}/`))
+    .sort((a, b) => b.length - a.length)[0] ?? "/dashboard";
   const openKeys = collectOpenKeys(navItems, location.pathname);
 
   function handleLogout() {

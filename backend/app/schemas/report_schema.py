@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field
 
 
 class ReportGenerateRequest(BaseModel):
-    model_id: int
     title: str | None = Field(default=None, max_length=256)
 
 

@@ -95,7 +95,7 @@ export default function ReportListPage() {
   return (
     <main>
       <div className="report-toolbar">
-        <Typography.Title level={3}>分析报告</Typography.Title>
+        <Typography.Title level={3}>实验报告</Typography.Title>
         <Space>
           <Typography.Text type="secondary">选择模型生成实验报告：</Typography.Text>
           <Button

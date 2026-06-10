@@ -1,6 +1,7 @@
 import { BarChartOutlined, DatabaseOutlined, FileTextOutlined } from "@ant-design/icons";
 import { Button, Card, Select, Space, Spin, Typography, message } from "antd";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { generateDatasetAnalysis } from "../../api/ai";
 import { listDatasets } from "../../api/datasets";
@@ -14,8 +15,14 @@ import type { MLModel } from "../../types/model";
 
 type TabMode = "dataset" | "model";
 
-export default function AIAnalysisPage() {
-  const [mode, setMode] = useState<TabMode>("dataset");
+type AIAnalysisPageProps = {
+  initialMode?: TabMode;
+};
+
+export default function AIAnalysisPage({ initialMode = "dataset" }: AIAnalysisPageProps) {
+  const [searchParams] = useSearchParams();
+  const queryMode = searchParams.get("mode") === "model" ? "model" : null;
+  const [mode, setMode] = useState<TabMode>(queryMode ?? initialMode);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [models, setModels] = useState<MLModel[]>([]);
   const [selectedDsId, setSelectedDsId] = useState<number | null>(null);
