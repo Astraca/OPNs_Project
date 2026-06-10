@@ -335,7 +335,7 @@ export default function AIConfigPage() {
             />
           </Form.Item>
           <Form.Item name="api_base" label="API 地址" rules={[{ required: true }]}>
-            <Input placeholder="https://api.deepseek.com/v1" />
+            <Input placeholder="https://api.deepseek.com" />
           </Form.Item>
           <Form.Item
             name="api_key"

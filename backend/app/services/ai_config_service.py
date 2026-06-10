@@ -12,7 +12,7 @@ from app.db_models.user import User
 PROVIDER_PRESETS: dict[str, dict] = {
     "deepseek": {
         "name": "DeepSeek",
-        "api_base": "https://api.deepseek.com/v1",
+        "api_base": "https://api.deepseek.com",
         "default_model": "deepseek-chat",
     },
     "kimi": {
