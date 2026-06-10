@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.db_models.dataset import Dataset
 from app.db_models.ml_model import ModelMetric
+from app.db_models.prediction import PredictionJob, PredictionResult
 from app.db_models.user import User
 from app.ml.opns_transformer import OPNsTransformer
 from app.schemas.model_schema import ModelTrainRequest
@@ -127,6 +128,35 @@ class OPNsTrainingTestCase(unittest.TestCase):
 
         self.assertEqual(set(result["result"].keys()), {"M", "E", "S", "T", "C"})
         self.assertIn(result["result"]["M"]["label"], {"M0", "M1"})
+
+    def test_delete_prediction_removes_results(self) -> None:
+        model = training_service.train_classification_model(
+            self.session,
+            self.user,
+            ModelTrainRequest(
+                dataset_id=self.dataset.id,
+                model_name="delete prediction model",
+                algorithm="OPNs-SVM",
+                target_columns=["out-M", "out-E", "out-S", "out-T", "out-C"],
+                pairing_method="adjacent",
+                test_size=0.3,
+                random_state=7,
+            ),
+        )
+        result = prediction_service.run_single_prediction(
+            self.session,
+            self.user,
+            model.id,
+            {"age": 45, "albumin": 35, "creatinine": 1.2, "uric_acid": 350},
+        )
+
+        prediction_service.delete_prediction(self.session, self.user, result["job_id"])
+
+        self.assertIsNone(self.session.get(PredictionJob, result["job_id"]))
+        self.assertEqual(
+            self.session.query(PredictionResult).filter(PredictionResult.job_id == result["job_id"]).count(),
+            0,
+        )
 
 
 if __name__ == "__main__":

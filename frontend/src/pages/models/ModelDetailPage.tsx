@@ -1,7 +1,6 @@
 import {
   BarChartOutlined,
   DeleteOutlined,
-  ExperimentOutlined,
   ThunderboltOutlined,
 } from "@ant-design/icons";
 import {

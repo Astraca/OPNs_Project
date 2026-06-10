@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, File, UploadFile, status
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -75,6 +74,15 @@ def prediction_history(
     return prediction_service.list_prediction_jobs(db, current_user)
 
 
+@router.get("/batch/{job_id}/download")
+def download_batch_prediction(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return prediction_service.download_prediction_result(db, current_user, job_id)
+
+
 @router.get("/{prediction_id}")
 def get_prediction_detail(
     prediction_id: int,
@@ -91,12 +99,3 @@ def delete_prediction(
     current_user: User = Depends(get_current_user),
 ) -> None:
     prediction_service.delete_prediction(db, current_user, prediction_id)
-
-
-@router.get("/batch/{job_id}/download")
-def download_batch_prediction(
-    job_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return prediction_service.download_prediction_result(db, current_user, job_id)

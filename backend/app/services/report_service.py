@@ -5,7 +5,6 @@ from app.db_models.ml_model import MLModel, ModelMetric
 from app.db_models.report import Report
 from app.db_models.user import User
 from app.schemas.prediction_schema import RESEARCH_DISCLAIMER
-from app.services.ai_analysis_service import generate_model_analysis
 from app.services.training_service import get_model
 from app.utils.igan_fields import display_target_name
 

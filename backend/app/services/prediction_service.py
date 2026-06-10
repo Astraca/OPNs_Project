@@ -6,7 +6,7 @@ from uuid import uuid4
 import joblib
 import pandas as pd
 from fastapi import HTTPException, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from fastapi.responses import FileResponse
@@ -346,7 +346,7 @@ def delete_prediction(db: Session, current_user: User, job_id: int) -> None:
     job = db.get(PredictionJob, job_id)
     if job is None or job.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prediction job not found")
-    db.execute(select(PredictionResult).where(PredictionResult.job_id == job.id).with_for_update())
+    db.execute(delete(PredictionResult).where(PredictionResult.job_id == job.id))
     db.delete(job)
     db.commit()
 

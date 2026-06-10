@@ -111,7 +111,6 @@ def cfg_to_dict(cfg: AIConfig) -> dict:
         "provider": cfg.provider,
         "api_base": cfg.api_base,
         "api_key": cfg.api_key[:8] + "***" if len(cfg.api_key) > 8 else "***",
-        "api_key_full": cfg.api_key,
         "model_name": cfg.model_name,
         "is_active": cfg.is_active,
         "created_at": cfg.created_at.isoformat() if cfg.created_at else None,

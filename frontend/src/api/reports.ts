@@ -1,5 +1,5 @@
 import { request } from "./request";
-import type { Report, ReportGeneratePayload } from "../types/report";
+import type { Report } from "../types/report";
 
 
 export async function generateReport(modelId: number, title?: string) {

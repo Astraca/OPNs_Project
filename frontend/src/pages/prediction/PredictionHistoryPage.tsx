@@ -8,7 +8,6 @@ import { deletePrediction, getPredictionDetail, listPredictionJobs } from "../..
 import { listModels } from "../../api/models";
 import AIReportPanel from "../ai/AIReportPanel";
 import type { AIAnalysisReport } from "../../types/ai";
-import type { MLModel } from "../../types/model";
 import type { PredictionJob } from "../../types/prediction";
 import "./PredictionPages.css";
 

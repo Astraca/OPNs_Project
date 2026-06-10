@@ -62,6 +62,9 @@ def list_ai_configs(db: Session, current_user: User) -> list[AIConfig]:
 
 
 def create_ai_config(db: Session, current_user: User, payload: dict) -> AIConfig:
+    api_key = str(payload.get("api_key", "")).strip()
+    if not api_key:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="API key is required")
     # Deactivate other configs if this one is active
     if payload.get("is_active"):
         db.execute(
@@ -74,7 +77,7 @@ def create_ai_config(db: Session, current_user: User, payload: dict) -> AIConfig
         name=payload["name"],
         provider=payload.get("provider", "custom"),
         api_base=payload["api_base"],
-        api_key=payload["api_key"],
+        api_key=api_key,
         model_name=payload["model_name"],
         is_active=payload.get("is_active", False),
     )
@@ -94,6 +97,8 @@ def update_ai_config(db: Session, current_user: User, config_id: int, payload: d
         )
     for field in ("name", "provider", "api_base", "api_key", "model_name", "is_active"):
         if field in payload:
+            if field == "api_key" and not str(payload[field]).strip():
+                continue
             setattr(config, field, payload[field])
     db.commit()
     db.refresh(config)

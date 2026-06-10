@@ -40,7 +40,6 @@ type AIConfigItem = {
   provider: string;
   api_base: string;
   api_key: string;
-  api_key_full: string;
   model_name: string;
   is_active: boolean;
 };
@@ -105,7 +104,7 @@ export default function AIConfigPage() {
       name: cfg.name,
       provider: cfg.provider,
       api_base: cfg.api_base,
-      api_key: cfg.api_key_full,
+      api_key: "",
       model_name: cfg.model_name,
       is_active: cfg.is_active,
     });
@@ -125,11 +124,15 @@ export default function AIConfigPage() {
   async function handleSave(values: Record<string, unknown>) {
     setSaving(true);
     try {
+      const payload = { ...values };
+      if (editingConfig && typeof payload.api_key === "string" && payload.api_key.trim() === "") {
+        delete payload.api_key;
+      }
       if (editingConfig) {
-        await request.put(`/ai-config/configs/${editingConfig.id}`, values);
+        await request.put(`/ai-config/configs/${editingConfig.id}`, payload);
         message.success("配置已更新");
       } else {
-        await request.post("/ai-config/configs", values);
+        await request.post("/ai-config/configs", payload);
         message.success("配置已创建");
       }
       setModalOpen(false);
@@ -322,8 +325,13 @@ export default function AIConfigPage() {
           <Form.Item name="api_base" label="API 地址" rules={[{ required: true }]}>
             <Input placeholder="https://api.deepseek.com/v1" />
           </Form.Item>
-          <Form.Item name="api_key" label="API Key" rules={[{ required: true }]}>
-            <Input.Password placeholder="sk-..." />
+          <Form.Item
+            name="api_key"
+            label="API Key"
+            rules={editingConfig ? [] : [{ required: true, message: "请输入 API Key" }]}
+            extra={editingConfig ? "留空则保持当前 API Key 不变" : undefined}
+          >
+            <Input.Password placeholder={editingConfig ? "留空不修改" : "sk-..."} />
           </Form.Item>
           <Form.Item name="model_name" label="模型名称" rules={[{ required: true }]}>
             <Input placeholder="deepseek-chat" />
