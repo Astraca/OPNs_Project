@@ -59,7 +59,7 @@ export default function RegressionSinglePredictionPage() {
           <Select
             placeholder={models.length ? "请选择回归模型" : "暂无回归模型"}
             options={models.map((m) => ({ label: `${m.model_name} (${m.algorithm})`, value: m.id }))}
-            onChange={(value: number) => { setSelectedModelId(value); form.resetFields(); setResult(null); }}
+            onChange={(value: number) => { setSelectedModelId(value); setResult(null); }}
           />
         </Form.Item>
         {selectedModel && (

@@ -21,7 +21,7 @@ export default function BatchPredictionPage() {
   const [predicting, setPredicting] = useState(false);
 
   useEffect(() => {
-    (async () => { try { setModels(await listModels()); } catch { message.error("模型列表加载失败"); } })();
+    (async () => { try { const all = await listModels(); setModels(all.filter((m) => m.task_type !== "regression")); } catch { message.error("模型列表加载失败"); } })();
   }, []);
 
   const uploadProps: UploadProps = {

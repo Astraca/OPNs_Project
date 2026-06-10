@@ -19,7 +19,8 @@ export default function IganSinglePredictionPage() {
   useEffect(() => {
     async function loadModels() {
       try {
-        setModels(await listModels());
+        const all = await listModels();
+        setModels(all.filter((m) => m.task_type !== "regression"));
       } catch {
         message.error("模型列表加载失败");
       }
@@ -59,7 +60,7 @@ export default function IganSinglePredictionPage() {
           <Select
             placeholder={models.length ? "请选择分类模型" : "暂无分类模型"}
             options={models.map((model) => ({ label: `${model.model_name} (${model.algorithm})`, value: model.id }))}
-            onChange={(value: number) => { setSelectedModelId(value); form.resetFields(); setResult(null); }}
+            onChange={(value: number) => { setSelectedModelId(value); setResult(null); }}
           />
         </Form.Item>
         {selectedModel && (

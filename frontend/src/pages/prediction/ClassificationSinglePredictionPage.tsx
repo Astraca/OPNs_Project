@@ -59,7 +59,7 @@ export default function ClassificationSinglePredictionPage() {
           <Select
             placeholder={models.length ? "请选择分类模型" : "暂无分类模型"}
             options={models.map((m) => ({ label: `${m.model_name} (${m.algorithm})`, value: m.id }))}
-            onChange={(v: number) => { setSelectedModelId(v); form.resetFields(); setResult(null); }}
+            onChange={(v: number) => { setSelectedModelId(v); setResult(null); }}
           />
         </Form.Item>
         {selectedModel && (
