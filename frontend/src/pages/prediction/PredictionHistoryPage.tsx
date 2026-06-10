@@ -14,15 +14,15 @@ import "./PredictionPages.css";
 
 
 const JOB_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  single: { label: "IgAN 单病例", color: "blue" },
-  batch: { label: "IgAN 批量", color: "cyan" },
+  single: { label: "分类单样本", color: "blue" },
+  batch: { label: "分类批量", color: "cyan" },
   regression_single: { label: "回归单样本", color: "orange" },
   regression_batch: { label: "回归批量", color: "gold" },
 };
 
 export default function PredictionHistoryPage() {
   const [jobs, setJobs] = useState<PredictionJob[]>([]);
-  const [modelMap, setModelMap] = useState<Map<number, string>>(new Map());
+  const [modelMap, setModelMap] = useState<Map<number, { name: string; algorithm: string }>>(new Map());
   const [aiReport, setAiReport] = useState<AIAnalysisReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
@@ -37,8 +37,8 @@ export default function PredictionHistoryPage() {
           listModels(),
         ]);
         setJobs(jobData);
-        const map = new Map<number, string>();
-        modelData.forEach((m) => map.set(m.id, m.model_name));
+        const map = new Map<number, { name: string; algorithm: string }>();
+        modelData.forEach((m) => map.set(m.id, { name: m.model_name, algorithm: m.algorithm }));
         setModelMap(map);
       } catch {
         message.error("预测历史加载失败");
@@ -87,8 +87,11 @@ export default function PredictionHistoryPage() {
     {
       title: "模型",
       dataIndex: "model_id",
-      width: 140,
-      render: (id: number) => modelMap.get(id) || `#${id}`,
+      width: 180,
+      render: (id: number) => {
+        const m = modelMap.get(id);
+        return m ? <><Tag color="blue">{m.algorithm}</Tag> {m.name}</> : `#${id}`;
+      },
     },
     {
       title: "类型",
